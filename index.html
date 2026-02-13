@@ -12,28 +12,22 @@
   <main class="container">
     <header class="app-header">
       <h1>ET Time Buddy</h1>
-      <p>Compare multiple locations with Eastern Time (America/New_York).</p>
+      <p>Compare any location time with Eastern Time (America/New_York).</p>
     </header>
 
     <section class="panel controls" aria-label="Time settings">
       <div class="field-row">
-        <label for="locationInput">Add location / timezone to compare</label>
+        <label for="locationInput">Remote location / timezone</label>
         <div class="location-input-wrap">
           <input id="locationInput" list="locationsList" placeholder="Type a city or timezone" autocomplete="off" />
-          <button id="favoriteBtn" class="icon-btn" type="button" aria-label="Toggle favorite for selected zone" title="Toggle favorite">☆</button>
-          <button id="addZoneBtn" type="button">+ Add</button>
+          <button id="favoriteBtn" class="icon-btn" type="button" aria-label="Toggle favorite" title="Toggle favorite">☆</button>
         </div>
         <datalist id="locationsList"></datalist>
       </div>
 
       <section class="favorites" aria-label="Favorite timezones">
-        <h2>Favorites (quick add)</h2>
+        <h2>Favorites</h2>
         <div id="favoritesList" class="favorites-list empty">No favorites yet.</div>
-      </section>
-
-      <section class="compare-list-wrap" aria-label="Comparison list">
-        <h2>Comparison list</h2>
-        <div id="comparisonList" class="comparison-list empty">No zones added yet. ET is always shown below.</div>
       </section>
 
       <fieldset class="mode-toggle">
@@ -53,16 +47,23 @@
             <input id="timeInput" type="time" step="60" />
           </div>
         </div>
-        <div class="field-row">
-          <label for="inputZoneSelect">Input time zone</label>
-          <select id="inputZoneSelect"></select>
-        </div>
+        <fieldset class="interpretation">
+          <legend>Input is in</legend>
+          <label><input type="radio" name="inputBasis" value="remote" checked /> Remote</label>
+          <label><input type="radio" name="inputBasis" value="et" /> ET</label>
+        </fieldset>
       </div>
     </section>
 
     <section class="panel result-card" aria-live="polite" aria-atomic="true">
       <h2>Results</h2>
-      <div id="resultsList" class="results-list"></div>
+      <p><strong>Remote:</strong> <span id="remoteTime">—</span></p>
+      <p><strong>ET:</strong> <span id="etTime">—</span></p>
+      <p><strong>Difference:</strong> <span id="difference">—</span></p>
+      <div class="copy-actions">
+        <button id="copyRemoteBtn" type="button">Copy Remote time</button>
+        <button id="copyEtBtn" type="button">Copy ET time</button>
+      </div>
       <p id="copyFeedback" class="copy-feedback" role="status"></p>
     </section>
   </main>

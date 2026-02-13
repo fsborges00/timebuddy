@@ -2,7 +2,6 @@ const { DateTime } = luxon;
 
 const HOME_TZ = "America/New_York";
 const FAVORITES_KEY = "et-time-buddy-favorites";
-const COMPARE_ZONES_KEY = "et-time-buddy-compare-zones";
 
 const LOCATIONS = [
   { label: "New York", tz: "America/New_York" },
@@ -47,27 +46,28 @@ const elements = {
   locationInput: document.getElementById("locationInput"),
   locationsList: document.getElementById("locationsList"),
   favoriteBtn: document.getElementById("favoriteBtn"),
-  addZoneBtn: document.getElementById("addZoneBtn"),
   favoritesList: document.getElementById("favoritesList"),
-  comparisonList: document.getElementById("comparisonList"),
   customTimeSection: document.getElementById("customTimeSection"),
   dateInput: document.getElementById("dateInput"),
   timeInput: document.getElementById("timeInput"),
-  inputZoneSelect: document.getElementById("inputZoneSelect"),
-  resultsList: document.getElementById("resultsList"),
+  remoteTime: document.getElementById("remoteTime"),
+  etTime: document.getElementById("etTime"),
+  difference: document.getElementById("difference"),
+  copyRemoteBtn: document.getElementById("copyRemoteBtn"),
+  copyEtBtn: document.getElementById("copyEtBtn"),
   copyFeedback: document.getElementById("copyFeedback")
 };
 
-let selectedEntry = LOCATIONS[1];
+let currentRemote = LOCATIONS[1];
 let favorites = loadFavorites();
-let comparisonZones = loadComparisonZones();
 let ticker = null;
+let lastRendered = { remoteText: "", etText: "" };
 
 initialize();
 
 function initialize() {
   fillDatalist();
-  elements.locationInput.value = formatLocationValue(selectedEntry);
+  elements.locationInput.value = formatLocationValue(currentRemote);
 
   const now = DateTime.now().setZone(HOME_TZ);
   elements.dateInput.value = now.toISODate();
@@ -76,24 +76,20 @@ function initialize() {
   bindEvents();
   renderFavorites();
   renderFavoriteButtonState();
-  renderComparisonList();
-  renderInputZoneOptions();
   refresh();
   startTicker();
 }
 
 function bindEvents() {
-  elements.locationInput.addEventListener("change", selectEntryFromInput);
-
-  elements.favoriteBtn.addEventListener("click", () => {
-    toggleFavorite(selectedEntry.tz);
-    renderFavoriteButtonState();
-    renderFavorites();
+  elements.locationInput.addEventListener("change", () => {
+    selectLocationFromInput();
+    refresh();
   });
 
-  elements.addZoneBtn.addEventListener("click", () => {
-    selectEntryFromInput();
-    addComparisonZone(selectedEntry.tz);
+  elements.favoriteBtn.addEventListener("click", () => {
+    toggleFavorite(currentRemote.tz);
+    renderFavorites();
+    renderFavoriteButtonState();
   });
 
   document.querySelectorAll('input[name="mode"]').forEach((radio) => {
@@ -101,17 +97,29 @@ function bindEvents() {
       const nowMode = getMode() === "now";
       elements.customTimeSection.classList.toggle("hidden", nowMode);
       elements.customTimeSection.setAttribute("aria-hidden", String(nowMode));
-
-      if (nowMode) startTicker();
-      else stopTicker();
-
+      if (nowMode) {
+        startTicker();
+      } else {
+        stopTicker();
+      }
       refresh();
     });
   });
 
-  [elements.dateInput, elements.timeInput, elements.inputZoneSelect].forEach((input) => {
+  [elements.dateInput, elements.timeInput].forEach((input) => {
     input.addEventListener("input", refresh);
-    input.addEventListener("change", refresh);
+  });
+
+  document.querySelectorAll('input[name="inputBasis"]').forEach((radio) => {
+    radio.addEventListener("change", refresh);
+  });
+
+  elements.copyRemoteBtn.addEventListener("click", () => {
+    copyText(lastRendered.remoteText, "Remote time copied.");
+  });
+
+  elements.copyEtBtn.addEventListener("click", () => {
+    copyText(lastRendered.etText, "ET time copied.");
   });
 }
 
@@ -124,72 +132,124 @@ function fillDatalist() {
   });
 }
 
-function selectEntryFromInput() {
+function selectLocationFromInput() {
   const value = elements.locationInput.value.trim();
   const exact = LOCATIONS.find((entry) => formatLocationValue(entry) === value);
-  const byTz = LOCATIONS.find((entry) => entry.tz.toLowerCase() === value.toLowerCase());
 
-  selectedEntry = exact || byTz || selectedEntry;
-  elements.locationInput.value = formatLocationValue(selectedEntry);
+  if (exact) {
+    currentRemote = exact;
+  } else {
+    const byTz = LOCATIONS.find((entry) => entry.tz.toLowerCase() === value.toLowerCase());
+    if (byTz) {
+      currentRemote = byTz;
+      elements.locationInput.value = formatLocationValue(byTz);
+    } else {
+      elements.locationInput.value = formatLocationValue(currentRemote);
+    }
+  }
+
   renderFavoriteButtonState();
 }
 
-function addComparisonZone(tz) {
-  if (tz === HOME_TZ || comparisonZones.includes(tz)) return;
+function refresh() {
+  const { remoteDateTime, etDateTime } = computeDateTimes();
 
-  comparisonZones = [...comparisonZones, tz];
-  saveComparisonZones(comparisonZones);
-  renderComparisonList();
-  renderInputZoneOptions();
-  refresh();
-}
-
-function removeComparisonZone(tz) {
-  comparisonZones = comparisonZones.filter((item) => item !== tz);
-  saveComparisonZones(comparisonZones);
-  renderComparisonList();
-  renderInputZoneOptions();
-  refresh();
-}
-
-function renderComparisonList() {
-  const entries = comparisonZones.map(findLocationByTz).filter(Boolean);
-
-  if (entries.length === 0) {
-    elements.comparisonList.classList.add("empty");
-    elements.comparisonList.textContent = "No zones added yet. ET is always shown below.";
+  if (!remoteDateTime || !etDateTime || !remoteDateTime.isValid || !etDateTime.isValid) {
+    elements.remoteTime.textContent = "Invalid date/time";
+    elements.etTime.textContent = "Invalid date/time";
+    elements.difference.textContent = "—";
     return;
   }
 
-  elements.comparisonList.classList.remove("empty");
-  elements.comparisonList.innerHTML = "";
+  const remoteLabel = `${currentRemote.label} (${currentRemote.tz})`;
+  const etLabel = `ET (${HOME_TZ})`;
 
-  entries.forEach((entry) => {
-    const row = document.createElement("div");
-    row.className = "compare-row";
+  const remoteFormatted = formatLong(remoteDateTime);
+  const etFormatted = formatLong(etDateTime);
 
-    const left = document.createElement("div");
-    left.className = "compare-row-meta";
+  elements.remoteTime.textContent = remoteFormatted;
+  elements.etTime.textContent = etFormatted;
+  elements.difference.textContent = describeOffsetDifference(remoteDateTime, etDateTime);
 
-    const title = document.createElement("div");
-    title.className = "compare-row-title";
-    title.textContent = entry.label;
+  lastRendered.remoteText = `${remoteLabel}: ${remoteFormatted}`;
+  lastRendered.etText = `${etLabel}: ${etFormatted}`;
+  renderFavoriteButtonState();
+}
 
-    const zone = document.createElement("div");
-    zone.className = "compare-row-zone";
-    zone.textContent = entry.tz;
+function computeDateTimes() {
+  if (getMode() === "now") {
+    const instant = DateTime.now();
+    return {
+      remoteDateTime: instant.setZone(currentRemote.tz),
+      etDateTime: instant.setZone(HOME_TZ)
+    };
+  }
 
-    const remove = document.createElement("button");
-    remove.type = "button";
-    remove.className = "danger-btn";
-    remove.textContent = "×";
-    remove.title = `Remove ${entry.label}`;
-    remove.addEventListener("click", () => removeComparisonZone(entry.tz));
+  if (!elements.dateInput.value || !elements.timeInput.value) {
+    return { remoteDateTime: null, etDateTime: null };
+  }
 
-    left.append(title, zone);
-    row.append(left, remove);
-    elements.comparisonList.appendChild(row);
+  const isoLocal = `${elements.dateInput.value}T${elements.timeInput.value}`;
+  const basis = document.querySelector('input[name="inputBasis"]:checked')?.value || "remote";
+
+  if (basis === "remote") {
+    const remoteDateTime = DateTime.fromISO(isoLocal, { zone: currentRemote.tz });
+    return {
+      remoteDateTime,
+      etDateTime: remoteDateTime.setZone(HOME_TZ)
+    };
+  }
+
+  const etDateTime = DateTime.fromISO(isoLocal, { zone: HOME_TZ });
+  return {
+    remoteDateTime: etDateTime.setZone(currentRemote.tz),
+    etDateTime
+  };
+}
+
+function formatLong(dateTime) {
+  return dateTime.toLocaleString({
+    weekday: "short",
+    month: "short",
+    day: "2-digit",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit"
   });
+}
+
+function describeOffsetDifference(remoteDateTime, etDateTime) {
+  const deltaMinutes = remoteDateTime.offset - etDateTime.offset;
+
+  if (deltaMinutes === 0) {
+    return "Remote and ET are at the same local time.";
+  }
+
+  const absolute = Math.abs(deltaMinutes);
+  const hours = Math.floor(absolute / 60);
+  const minutes = absolute % 60;
+  const sign = deltaMinutes > 0 ? "+" : "-";
+  const relation = deltaMinutes > 0 ? "ahead of" : "behind";
+  const hourText = `${hours}h`;
+  const minuteText = minutes ? ` ${minutes}m` : "";
+
+  return `Remote is ${sign}${hourText}${minuteText} ${relation} ET`;
+}
+
+function getMode() {
+  return document.querySelector('input[name="mode"]:checked')?.value || "now";
+}
+
+function startTicker() {
+  stopTicker();
+  ticker = setInterval(refresh, 1000);
+}
+
+function stopTicker() {
+  if (ticker) {
+    clearInterval(ticker);
+    ticker = null;
+  }
 }
 
 function renderFavorites() {
@@ -210,165 +270,28 @@ function renderFavorites() {
     button.className = "favorite-chip";
     button.textContent = `★ ${entry.label}`;
     button.title = `${entry.label} (${entry.tz})`;
-    button.addEventListener("click", () => addComparisonZone(entry.tz));
+    button.addEventListener("click", () => {
+      currentRemote = entry;
+      elements.locationInput.value = formatLocationValue(entry);
+      renderFavoriteButtonState();
+      refresh();
+    });
     elements.favoritesList.appendChild(button);
   });
 }
 
-function renderInputZoneOptions() {
-  const zones = [HOME_TZ, ...comparisonZones];
-  const current = elements.inputZoneSelect.value || HOME_TZ;
-
-  elements.inputZoneSelect.innerHTML = "";
-  zones.forEach((tz) => {
-    const option = document.createElement("option");
-    option.value = tz;
-
-    if (tz === HOME_TZ) {
-      option.textContent = `ET (${HOME_TZ})`;
-    } else {
-      const location = findLocationByTz(tz);
-      const label = location ? location.label : tz;
-      option.textContent = `${label} (${tz})`;
-    }
-
-    elements.inputZoneSelect.appendChild(option);
-  });
-
-  if (zones.includes(current)) elements.inputZoneSelect.value = current;
-  else elements.inputZoneSelect.value = HOME_TZ;
-}
-
-function refresh() {
-  const baseInstant = getBaseInstant();
-
-  if (!baseInstant || !baseInstant.isValid) {
-    elements.resultsList.innerHTML = `<p class="empty-note">Invalid date/time.</p>`;
-    return;
-  }
-
-  const etDateTime = baseInstant.setZone(HOME_TZ);
-  const compareEntries = comparisonZones.map(findLocationByTz).filter(Boolean);
-
-  elements.resultsList.innerHTML = "";
-
-  elements.resultsList.appendChild(
-    createResultRow({
-      label: "ET",
-      tz: HOME_TZ,
-      dateTime: etDateTime,
-      differenceText: "Home reference",
-      isHome: true
-    })
-  );
-
-  compareEntries.forEach((entry) => {
-    const remote = baseInstant.setZone(entry.tz);
-    elements.resultsList.appendChild(
-      createResultRow({
-        label: entry.label,
-        tz: entry.tz,
-        dateTime: remote,
-        differenceText: describeOffsetDifference(remote, etDateTime),
-        isHome: false
-      })
-    );
-  });
-
-  if (compareEntries.length === 0) {
-    const note = document.createElement("p");
-    note.className = "empty-note";
-    note.textContent = "Add zones to compare against ET.";
-    elements.resultsList.appendChild(note);
-  }
-}
-
-function createResultRow({ label, tz, dateTime, differenceText, isHome }) {
-  const row = document.createElement("article");
-  row.className = `result-row${isHome ? " home" : ""}`;
-
-  const heading = document.createElement("div");
-  heading.className = "result-row-heading";
-  heading.innerHTML = `<strong>${label}</strong> <span class="result-zone">${tz}</span>`;
-
-  const time = document.createElement("div");
-  time.className = "result-time";
-  time.textContent = `${formatLong(dateTime)} (${dateTime.offsetNameShort})`;
-
-  const diff = document.createElement("div");
-  diff.className = "result-diff";
-  diff.textContent = differenceText;
-
-  const copy = document.createElement("button");
-  copy.type = "button";
-  copy.textContent = `Copy ${label} time`;
-  copy.addEventListener("click", () => {
-    copyText(`${label} (${tz}): ${formatLong(dateTime)} (${dateTime.offsetNameShort})`, `${label} time copied.`);
-  });
-
-  row.append(heading, time, diff, copy);
-  return row;
-}
-
-function getBaseInstant() {
-  if (getMode() === "now") {
-    return DateTime.now();
-  }
-
-  if (!elements.dateInput.value || !elements.timeInput.value) {
-    return null;
-  }
-
-  const isoLocal = `${elements.dateInput.value}T${elements.timeInput.value}`;
-  const inputTz = elements.inputZoneSelect.value || HOME_TZ;
-  return DateTime.fromISO(isoLocal, { zone: inputTz });
-}
-
-function describeOffsetDifference(remoteDateTime, etDateTime) {
-  const deltaMinutes = remoteDateTime.offset - etDateTime.offset;
-
-  if (deltaMinutes === 0) return "Same local time as ET";
-
-  const absolute = Math.abs(deltaMinutes);
-  const hours = Math.floor(absolute / 60);
-  const minutes = absolute % 60;
-  const sign = deltaMinutes > 0 ? "+" : "-";
-  const relation = deltaMinutes > 0 ? "ahead of ET" : "behind ET";
-
-  if (minutes === 0) return `${sign}${hours}h ${relation}`;
-  return `${sign}${hours}h ${minutes}m ${relation}`;
-}
-
-function formatLong(dateTime) {
-  return dateTime.toFormat("ccc, LLL d, yyyy, h:mm a");
-}
-
-function getMode() {
-  return document.querySelector('input[name="mode"]:checked')?.value || "now";
-}
-
-function startTicker() {
-  stopTicker();
-  ticker = setInterval(refresh, 1000);
-}
-
-function stopTicker() {
-  if (ticker) {
-    clearInterval(ticker);
-    ticker = null;
-  }
-}
-
 function renderFavoriteButtonState() {
-  const active = favorites.includes(selectedEntry.tz);
+  const active = favorites.includes(currentRemote.tz);
   elements.favoriteBtn.classList.toggle("active", active);
   elements.favoriteBtn.textContent = active ? "★" : "☆";
 }
 
 function toggleFavorite(tz) {
-  if (favorites.includes(tz)) favorites = favorites.filter((item) => item !== tz);
-  else favorites = [tz, ...favorites];
-
+  if (favorites.includes(tz)) {
+    favorites = favorites.filter((item) => item !== tz);
+  } else {
+    favorites = [tz, ...favorites];
+  }
   saveFavorites(favorites);
 }
 
@@ -376,10 +299,8 @@ function loadFavorites() {
   try {
     const raw = localStorage.getItem(FAVORITES_KEY);
     if (!raw) return [];
-
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-
     return parsed.filter((tz) => LOCATIONS.some((entry) => entry.tz === tz));
   } catch {
     return [];
@@ -390,33 +311,16 @@ function saveFavorites(items) {
   localStorage.setItem(FAVORITES_KEY, JSON.stringify(items));
 }
 
-function loadComparisonZones() {
-  try {
-    const raw = localStorage.getItem(COMPARE_ZONES_KEY);
-    if (!raw) return [];
-
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-
-    return parsed.filter((tz) => tz !== HOME_TZ && LOCATIONS.some((entry) => entry.tz === tz));
-  } catch {
-    return [];
-  }
-}
-
-function saveComparisonZones(zones) {
-  localStorage.setItem(COMPARE_ZONES_KEY, JSON.stringify(zones));
-}
-
-function findLocationByTz(tz) {
-  return LOCATIONS.find((entry) => entry.tz === tz);
-}
-
 function formatLocationValue(entry) {
   return `${entry.label} (${entry.tz})`;
 }
 
 async function copyText(text, successMessage) {
+  if (!text) {
+    elements.copyFeedback.textContent = "Nothing to copy yet.";
+    return;
+  }
+
   try {
     await navigator.clipboard.writeText(text);
     elements.copyFeedback.textContent = successMessage;

@@ -1,22 +1,20 @@
 # ET Time Buddy
 
-ET Time Buddy is a GitHub Pages–ready static web app that compares **multiple selected remote timezones** with **Eastern Time (America/New_York)**.
+ET Time Buddy is a GitHub Pages–ready static web app that compares a selected remote timezone with **Eastern Time (America/New_York)**.
 
 It shows:
-- ET current time (always included)
-- Current time for each zone in your comparison list
-- Per-zone difference versus ET (ahead/behind)
-- Correct short timezone abbreviation for each displayed time (EST/EDT, GMT/BST, etc.)
+- Remote current time
+- ET current time
+- Time difference versus ET (ahead/behind)
 
 It also supports:
 - **Now** mode (auto-updates every second)
-- **Pick date/time** mode with a clear **Input time zone** dropdown
+- **Pick date/time** mode with conversion basis (`Remote` or `ET`)
 - Favorites with local persistence (`localStorage`)
-- Comparison list persistence (`localStorage`)
-- Copy button on each result row
+- Copy buttons for readable ET/remote time strings
 
 ## Why Luxon?
-The app uses the lightweight [Luxon](https://moment.github.io/luxon/#/) library (via CDN) to make timezone conversion reliable for arbitrary dates, including daylight saving transitions in both ET and remote zones.
+The app uses the lightweight [Luxon](https://moment.github.io/luxon/#/) library (via CDN) to make timezone/date conversion reliable for arbitrary dates, including daylight saving transitions in both ET and remote zones.
 
 ## Project structure
 
