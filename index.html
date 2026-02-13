@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ET Time Buddy</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/luxon@3.5.0/build/global/luxon.min.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <main class="container">
+    <header class="app-header">
+      <h1>ET Time Buddy</h1>
+      <p>Compare multiple locations with Eastern Time (America/New_York).</p>
+    </header>
+
+    <section class="panel controls" aria-label="Time settings">
+      <div class="field-row">
+        <label for="locationInput">Add location / timezone to compare</label>
+        <div class="location-input-wrap">
+          <input id="locationInput" list="locationsList" placeholder="Type a city or timezone" autocomplete="off" />
+          <button id="favoriteBtn" class="icon-btn" type="button" aria-label="Toggle favorite for selected zone" title="Toggle favorite">☆</button>
+          <button id="addZoneBtn" type="button">+ Add</button>
+        </div>
+        <datalist id="locationsList"></datalist>
+      </div>
+
+      <section class="favorites" aria-label="Favorite timezones">
+        <h2>Favorites (quick add)</h2>
+        <div id="favoritesList" class="favorites-list empty">No favorites yet.</div>
+      </section>
+
+      <section class="compare-list-wrap" aria-label="Comparison list">
+        <h2>Comparison list</h2>
+        <div id="comparisonList" class="comparison-list empty">No zones added yet. ET is always shown below.</div>
+      </section>
+
+      <fieldset class="mode-toggle">
+        <legend>Mode</legend>
+        <label><input type="radio" name="mode" value="now" checked /> Now</label>
+        <label><input type="radio" name="mode" value="pick" /> Pick date/time</label>
+      </fieldset>
+
+      <div id="customTimeSection" class="custom-time hidden" aria-hidden="true">
+        <div class="field-grid">
+          <div>
+            <label for="dateInput">Date</label>
+            <input id="dateInput" type="date" />
+          </div>
+          <div>
+            <label for="timeInput">Time</label>
+            <input id="timeInput" type="time" step="60" />
+          </div>
+        </div>
+        <div class="field-row">
+          <label for="inputZoneSelect">Input time zone</label>
+          <select id="inputZoneSelect"></select>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel result-card" aria-live="polite" aria-atomic="true">
+      <h2>Results</h2>
+      <div id="resultsList" class="results-list"></div>
+      <p id="copyFeedback" class="copy-feedback" role="status"></p>
+    </section>
+  </main>
+</body>
+</html>
