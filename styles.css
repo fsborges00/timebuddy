@@ -63,6 +63,12 @@ h2 {
 .location-input-wrap {
   display: flex;
   gap: 0.5rem;
+  align-items: center;
+}
+
+.location-input-wrap #locationInput {
+  flex: 1;
+  min-width: 0;
 }
 
 input[type="text"],
@@ -90,10 +96,107 @@ input[type="time"],
   border-color: #93c5fd;
 }
 
+.comparison-list-wrap h2,
 .favorites h2,
 .result-card h2 {
   margin: 0;
   font-size: 1rem;
+}
+
+.comparison-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.comparison-list.empty {
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.comparison-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.6rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.comparison-label {
+  font-weight: 600;
+  flex: 1;
+  min-width: 0;
+}
+
+.comparison-iana {
+  font-size: 0.85rem;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.remove-btn {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
+select#inputTzSelect {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 1rem;
+  background: white;
+}
+
+.results-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.result-row {
+  padding: 0.6rem 0.75rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.result-row-header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.result-label {
+  font-weight: 600;
+}
+
+.result-iana {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.result-row .result-time {
+  margin: 0.25rem 0 0;
+  font-size: 1rem;
+}
+
+.result-row .result-difference {
+  margin: 0.15rem 0 0;
+  font-size: 0.9rem;
+  color: var(--muted);
 }
 
 .favorites-list {
