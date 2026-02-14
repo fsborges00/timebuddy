@@ -71,6 +71,37 @@ h2 {
   min-width: 0;
 }
 
+.typeahead-list {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fff;
+  max-height: 220px;
+  overflow: auto;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+}
+
+.typeahead-option {
+  width: 100%;
+  text-align: left;
+  border: 0;
+  border-bottom: 1px solid #eef2f7;
+  border-radius: 0;
+  background: #fff;
+  padding: 0.55rem 0.7rem;
+  font-size: 0.92rem;
+}
+
+.typeahead-option:last-child {
+  border-bottom: 0;
+}
+
+.typeahead-option.active,
+.typeahead-option:hover,
+.typeahead-option:focus-visible {
+  background: var(--accent-soft);
+  outline: none;
+}
+
 input[type="text"],
 input[type="date"],
 input[type="time"],
@@ -131,6 +162,15 @@ input[type="time"],
   min-width: 0;
 }
 
+.comparison-source {
+  font-size: 0.75rem;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.08rem 0.4rem;
+  background: #fff;
+}
+
 .comparison-iana {
   font-size: 0.85rem;
   color: var(--muted);
@@ -156,6 +196,38 @@ select#inputTzSelect {
   border-radius: 10px;
   font-size: 1rem;
   background: white;
+}
+
+.time-select-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.time-select-row select,
+.time-select-row input {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.6rem 0.6rem;
+  background: #fff;
+  font-size: 1rem;
+}
+
+.time-select-row #timeHourInput {
+  width: 62px;
+}
+
+.time-select-row #timeMinuteInput {
+  width: 72px;
+}
+
+.time-select-row #timeMeridiemSelect {
+  width: 84px;
+}
+
+.time-separator {
+  color: var(--muted);
+  font-weight: 600;
 }
 
 .results-list {
@@ -186,6 +258,23 @@ select#inputTzSelect {
 .result-iana {
   font-size: 0.85rem;
   color: var(--muted);
+}
+
+.result-source {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.result-abbr {
+  font-size: 0.82rem;
+  border: 1px solid var(--border);
+  background: #fff;
+  border-radius: 999px;
+  padding: 0.1rem 0.45rem;
+}
+
+.result-row-header .remove-btn {
+  margin-left: auto;
 }
 
 .result-row .result-time {
