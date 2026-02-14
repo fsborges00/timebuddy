@@ -258,6 +258,11 @@ const ZONE_CODE_ALIAS_TO_TZ = {
   GMT: "Etc/UTC"
 };
 
+const ZONE_CODE_PREFERRED_TZ = {
+  IST: "Asia/Kolkata",
+  CST: "America/Chicago"
+};
+
 let allTimeZonesCache = null;
 let zoneCodeToZonesCache = null;
 
@@ -511,6 +516,11 @@ async function attemptAddFromInput(selectedOverride = null) {
     return;
   }
 
+  if (addStatus === "invalid") {
+    elements.copyFeedback.textContent = "Could not determine a valid timezone from that value.";
+    return;
+  }
+
   elements.copyFeedback.textContent = `${entry.label} is already in your comparison list.`;
 }
 
@@ -545,9 +555,12 @@ function resolveEntryForAdd(selected) {
 
 function getMatchingSearchEntries(query) {
   const normalizedQuery = query.toLowerCase();
-  return getSearchableZones()
+  const codeMatches = getZoneEntriesByCode(query, MAX_TYPEAHEAD_OPTIONS);
+  const textMatches = getSearchableZones()
     .filter((entry) => getSearchTokens(entry).includes(normalizedQuery))
-    .slice(0, MAX_TYPEAHEAD_OPTIONS);
+    .filter((entry) => !codeMatches.some((codeEntry) => codeEntry.tz === entry.tz));
+
+  return [...codeMatches, ...textMatches].slice(0, MAX_TYPEAHEAD_OPTIONS);
 }
 
 async function lookupCityByName(query) {
@@ -834,10 +847,11 @@ function syncLocationInputWithFirst() {
 }
 
 function addToComparisonList(entry) {
+  if (!entry || !entry.tz || !isValidZone(entry.tz)) return "invalid";
   if (entry.tz === HOME_TZ) return "home-zone";
   if (comparisonZones.some((z) => z.tz === entry.tz)) return "duplicate";
   comparisonZones.push({
-    label: entry.label,
+    label: entry.label || getLabelForZone(entry.tz),
     tz: entry.tz,
     source: entry.source || "Manual selection"
   });
@@ -1261,39 +1275,41 @@ function getSearchTokens(entry) {
 }
 
 function getZoneEntryByCode(rawValue) {
-  const code = rawValue.trim().toUpperCase();
-  if (!/^[A-Z]{2,6}$/.test(code)) return null;
+  const entries = getZoneEntriesByCode(rawValue, 1);
+  return entries[0] || null;
+}
 
-  const aliasTz = ZONE_CODE_ALIAS_TO_TZ[code];
-  if (aliasTz && isValidZone(aliasTz)) {
-    return {
-      label: getLabelForZone(aliasTz),
-      tz: aliasTz,
-      kind: "zone",
-      source: `Timezone code (${code})`
-    };
-  }
+function getZoneEntriesByCode(rawValue, limit = MAX_TYPEAHEAD_OPTIONS) {
+  const code = rawValue.trim().toUpperCase();
+  if (!/^[A-Z]{2,6}$/.test(code)) return [];
+
+  const entries = [];
+  const seenTz = new Set();
+  const pushTz = (tz) => {
+    if (!tz || seenTz.has(tz) || !isValidZone(tz)) return;
+    seenTz.add(tz);
+    entries.push(makeZoneCodeEntry(code, tz));
+  };
+
+  pushTz(ZONE_CODE_PREFERRED_TZ[code]);
+  pushTz(ZONE_CODE_ALIAS_TO_TZ[code]);
 
   const codeMap = getZoneCodeToZonesMap();
   const matches = codeMap.get(code);
-  if (!matches || !matches.length) return null;
+  if (Array.isArray(matches)) {
+    matches.forEach((tz) => pushTz(tz));
+  }
 
-  const preferred = getPreferredZone(matches);
+  return entries.slice(0, limit);
+}
+
+function makeZoneCodeEntry(code, tz) {
   return {
-    label: getLabelForZone(preferred),
-    tz: preferred,
+    label: getLabelForZone(tz),
+    tz,
     kind: "zone",
     source: `Timezone code (${code})`
   };
-}
-
-function getPreferredZone(zones) {
-  const preferredOrder = [...LOCATIONS.map((entry) => entry.tz), ...CITY_ALIASES.map((entry) => entry.tz)];
-  const fromPreferred = preferredOrder.find((tz) => zones.includes(tz));
-  if (fromPreferred) return fromPreferred;
-
-  const valid = zones.filter((tz) => isValidZone(tz));
-  return valid[0] || zones[0];
 }
 
 function getZoneCodeToZonesMap() {
