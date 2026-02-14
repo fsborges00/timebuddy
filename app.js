@@ -1305,7 +1305,7 @@ function getZoneEntriesByCode(rawValue, limit = MAX_TYPEAHEAD_OPTIONS) {
 
 function makeZoneCodeEntry(code, tz) {
   return {
-    label: getLabelForZone(tz),
+    label: code,
     tz,
     kind: "zone",
     source: `Timezone code (${code})`
