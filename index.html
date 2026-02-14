@@ -23,7 +23,7 @@
           <button id="addBtn" type="button">+ Add</button>
           <button id="favoriteBtn" class="icon-btn" type="button" aria-label="Toggle favorite" title="Toggle favorite">☆</button>
         </div>
-        <datalist id="locationsList"></datalist>
+        <div id="locationSuggestions" class="typeahead-list hidden" role="listbox" aria-label="Location suggestions"></div>
       </div>
 
       <section class="comparison-list-wrap" aria-label="Comparison list">
@@ -49,8 +49,16 @@
             <input id="dateInput" type="date" />
           </div>
           <div>
-            <label for="timeInput">Time</label>
-            <input id="timeInput" type="time" step="60" />
+            <label for="timeHourInput">Time</label>
+            <div class="time-select-row">
+              <input id="timeHourInput" type="text" inputmode="numeric" placeholder="h" aria-label="Hour" />
+              <span class="time-separator">:</span>
+              <input id="timeMinuteInput" type="text" inputmode="numeric" placeholder="mm" aria-label="Minute" />
+              <select id="timeMeridiemSelect" aria-label="AM PM">
+                <option value="AM">AM</option>
+                <option value="PM">PM</option>
+              </select>
+            </div>
           </div>
         </div>
         <div class="field-row">

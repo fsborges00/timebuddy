@@ -44,6 +44,278 @@ const LOCATIONS = [
   { label: "Reykjavík", tz: "Atlantic/Reykjavik" }
 ];
 
+const CITY_ALIASES = [
+  { label: "Charlotte", tz: "America/New_York" },
+  { label: "Miami", tz: "America/New_York" },
+  { label: "Atlanta", tz: "America/New_York" },
+  { label: "Boston", tz: "America/New_York" },
+  { label: "Washington", tz: "America/New_York" },
+  { label: "Dallas", tz: "America/Chicago" },
+  { label: "Houston", tz: "America/Chicago" },
+  { label: "Seattle", tz: "America/Los_Angeles" },
+  { label: "San Francisco", tz: "America/Los_Angeles" },
+  { label: "Las Vegas", tz: "America/Los_Angeles" },
+  { label: "Salt Lake City", tz: "America/Denver" },
+  { label: "Montreal", tz: "America/Toronto" },
+  { label: "Dublin", tz: "Europe/Dublin" },
+  { label: "Lisbon", tz: "Europe/Lisbon" },
+  { label: "Zurich", tz: "Europe/Zurich" },
+  { label: "Vienna", tz: "Europe/Vienna" },
+  { label: "Prague", tz: "Europe/Prague" },
+  { label: "Oslo", tz: "Europe/Oslo" },
+  { label: "Stockholm", tz: "Europe/Stockholm" },
+  { label: "Helsinki", tz: "Europe/Helsinki" },
+  { label: "Cape Town", tz: "Africa/Johannesburg" },
+  { label: "Beijing", tz: "Asia/Shanghai" },
+  { label: "Shanghai", tz: "Asia/Shanghai" },
+  { label: "Delhi", tz: "Asia/Kolkata" },
+  { label: "Bengaluru", tz: "Asia/Kolkata" },
+  { label: "Melbourne", tz: "Australia/Melbourne" },
+  { label: "Brisbane", tz: "Australia/Brisbane" },
+  { label: "Rio de Janeiro", tz: "America/Sao_Paulo" },
+  { label: "Brasilia", tz: "America/Sao_Paulo" }
+];
+
+const COUNTRY_TIMEZONES = [
+  {
+    country: "United States",
+    zones: [
+      "America/New_York",
+      "America/Chicago",
+      "America/Denver",
+      "America/Phoenix",
+      "America/Los_Angeles",
+      "America/Anchorage",
+      "Pacific/Honolulu"
+    ]
+  },
+  {
+    country: "Canada",
+    zones: [
+      "America/St_Johns",
+      "America/Halifax",
+      "America/Toronto",
+      "America/Winnipeg",
+      "America/Edmonton",
+      "America/Vancouver"
+    ]
+  },
+  {
+    country: "Australia",
+    zones: [
+      "Australia/Perth",
+      "Australia/Darwin",
+      "Australia/Adelaide",
+      "Australia/Brisbane",
+      "Australia/Sydney"
+    ]
+  },
+  {
+    country: "Brazil",
+    zones: [
+      "America/Sao_Paulo",
+      "America/Manaus",
+      "America/Cuiaba",
+      "America/Belem",
+      "America/Rio_Branco"
+    ]
+  },
+  {
+    country: "Mexico",
+    zones: [
+      "America/Mexico_City",
+      "America/Cancun",
+      "America/Chihuahua",
+      "America/Tijuana"
+    ]
+  },
+  {
+    country: "Spain",
+    zones: ["Europe/Madrid", "Atlantic/Canary"]
+  },
+  {
+    country: "Portugal",
+    zones: ["Europe/Lisbon", "Atlantic/Azores"]
+  },
+  {
+    country: "Russia",
+    zones: [
+      "Europe/Kaliningrad",
+      "Europe/Moscow",
+      "Europe/Samara",
+      "Asia/Yekaterinburg",
+      "Asia/Omsk",
+      "Asia/Krasnoyarsk",
+      "Asia/Irkutsk",
+      "Asia/Yakutsk",
+      "Asia/Vladivostok",
+      "Asia/Kamchatka"
+    ]
+  },
+  {
+    country: "Indonesia",
+    zones: ["Asia/Jakarta", "Asia/Makassar", "Asia/Jayapura"]
+  },
+  {
+    country: "New Zealand",
+    zones: ["Pacific/Auckland", "Pacific/Chatham"]
+  },
+  {
+    country: "United Kingdom",
+    zones: ["Europe/London"]
+  },
+  {
+    country: "Japan",
+    zones: ["Asia/Tokyo"]
+  },
+  {
+    country: "India",
+    zones: ["Asia/Kolkata"]
+  },
+  {
+    country: "China",
+    zones: ["Asia/Shanghai"]
+  },
+  {
+    country: "Germany",
+    zones: ["Europe/Berlin"]
+  },
+  {
+    country: "France",
+    zones: ["Europe/Paris"]
+  },
+  {
+    country: "Italy",
+    zones: ["Europe/Rome"]
+  },
+  {
+    country: "South Africa",
+    zones: ["Africa/Johannesburg"]
+  },
+  {
+    country: "United Arab Emirates",
+    zones: ["Asia/Dubai"]
+  }
+];
+
+const ZONE_ABBREVIATIONS = {
+  "America/New_York": { std: "EST", dst: "EDT" },
+  "Europe/London": { std: "GMT", dst: "BST" },
+  "America/Sao_Paulo": { std: "BRT", dst: "BRST" },
+  "Asia/Tokyo": { std: "JST" },
+  "America/Los_Angeles": { std: "PST", dst: "PDT" },
+  "America/Denver": { std: "MST", dst: "MDT" },
+  "America/Chicago": { std: "CST", dst: "CDT" },
+  "America/Phoenix": { std: "MST" },
+  "Europe/Berlin": { std: "CET", dst: "CEST" },
+  "Asia/Dubai": { std: "GST" },
+  "Australia/Sydney": { std: "AEST", dst: "AEDT" },
+  "Europe/Paris": { std: "CET", dst: "CEST" },
+  "Europe/Madrid": { std: "CET", dst: "CEST" },
+  "Europe/Rome": { std: "CET", dst: "CEST" },
+  "Europe/Amsterdam": { std: "CET", dst: "CEST" },
+  "Asia/Kolkata": { std: "IST" },
+  "Asia/Singapore": { std: "SGT" },
+  "Asia/Hong_Kong": { std: "HKT" },
+  "Asia/Seoul": { std: "KST" },
+  "Asia/Bangkok": { std: "ICT" },
+  "Africa/Johannesburg": { std: "SAST" },
+  "Africa/Nairobi": { std: "EAT" },
+  "America/Mexico_City": { std: "CST" },
+  "America/Toronto": { std: "EST", dst: "EDT" },
+  "America/Vancouver": { std: "PST", dst: "PDT" },
+  "America/Anchorage": { std: "AKST", dst: "AKDT" },
+  "Pacific/Honolulu": { std: "HST" },
+  "America/Argentina/Buenos_Aires": { std: "ART" },
+  "America/Lima": { std: "PET" },
+  "America/Bogota": { std: "COT" },
+  "America/Santiago": { std: "CLT", dst: "CLST" },
+  "Pacific/Auckland": { std: "NZST", dst: "NZDT" },
+  "Australia/Perth": { std: "AWST" },
+  "Europe/Istanbul": { std: "TRT" },
+  "Africa/Cairo": { std: "EET", dst: "EEST" },
+  "Atlantic/Reykjavik": { std: "GMT" },
+  "Europe/Dublin": { std: "GMT", dst: "IST" },
+  "Europe/Lisbon": { std: "WET", dst: "WEST" },
+  "Europe/Zurich": { std: "CET", dst: "CEST" },
+  "Europe/Vienna": { std: "CET", dst: "CEST" },
+  "Europe/Prague": { std: "CET", dst: "CEST" },
+  "Europe/Oslo": { std: "CET", dst: "CEST" },
+  "Europe/Stockholm": { std: "CET", dst: "CEST" },
+  "Europe/Helsinki": { std: "EET", dst: "EEST" },
+  "Asia/Shanghai": { std: "CST" },
+  "Australia/Melbourne": { std: "AEST", dst: "AEDT" },
+  "Australia/Brisbane": { std: "AEST" }
+};
+
+let allTimeZonesCache = null;
+
+function getAllTimeZones() {
+  if (allTimeZonesCache) return allTimeZonesCache;
+  try {
+    const zones = Intl.supportedValuesOf("timeZone");
+    allTimeZonesCache = zones.map((tz) => ({
+      label: deriveLabelFromZone(tz),
+      tz
+    }));
+    return allTimeZonesCache;
+  } catch (_) {
+    allTimeZonesCache = LOCATIONS.slice();
+    return allTimeZonesCache;
+  }
+}
+
+function deriveLabelFromZone(tz) {
+  const part = tz.split("/").pop() || tz;
+  return part.replace(/_/g, " ");
+}
+
+function getSearchableZones() {
+  const all = getAllTimeZones();
+  const baseZones = [...LOCATIONS, ...CITY_ALIASES];
+  const baseZoneSet = new Set(baseZones.map((e) => e.tz));
+  const zoneEntries = [
+    ...baseZones.map((entry) => ({ ...entry, kind: "zone" })),
+    ...all
+      .filter((e) => !baseZoneSet.has(e.tz))
+      .map((entry) => ({ ...entry, kind: "zone" }))
+  ];
+
+  const countryEntries = COUNTRY_TIMEZONES.map((entry) => {
+    const zones = entry.zones.filter((tz) => isValidZone(tz));
+    if (zones.length <= 1) {
+      return {
+        kind: "country-single",
+        label: entry.country,
+        country: entry.country,
+        tz: zones[0] || null,
+        zones
+      };
+    }
+    return {
+      kind: "country-multi",
+      label: entry.country,
+      country: entry.country,
+      zones
+    };
+  }).filter((entry) => entry.kind === "country-multi" || entry.tz);
+
+  return [
+    ...zoneEntries,
+    ...countryEntries
+  ];
+}
+
+function isValidZone(tz) {
+  return DateTime.now().setZone(tz).isValid;
+}
+
+function getLabelForZone(tz) {
+  const inLoc = LOCATIONS.find((e) => e.tz === tz);
+  if (inLoc) return inLoc.label;
+  return deriveLabelFromZone(tz);
+}
+
 const elements = {
   locationInput: document.getElementById("locationInput"),
   locationsList: document.getElementById("locationsList"),
@@ -62,6 +334,7 @@ const elements = {
 
 let comparisonZones = loadComparisonList();
 let favorites = loadFavorites();
+let cityLookupCache = loadCityLookupCache();
 let ticker = null;
 let lastRenderedLines = [];
 
@@ -73,7 +346,7 @@ function initialize() {
 
   const now = DateTime.now().setZone(HOME_TZ);
   elements.dateInput.value = now.toISODate();
-  elements.timeInput.value = now.toFormat("HH:mm");
+  setTimePickerFromDateTime(now);
 
   bindEvents();
   renderComparisonList();
@@ -353,6 +626,39 @@ function getMode() {
   return document.querySelector('input[name="mode"]:checked')?.value || "now";
 }
 
+function updateCopyButtonLabel() {
+  elements.copyAllBtn.textContent = getMode() === "pick" ? "Copy email subject" : "Copy all times";
+}
+
+function formatPickModeSubject(instant, segments) {
+  const inputTz = elements.inputTzSelect.value || HOME_TZ;
+  const dateInInputZone = instant.setZone(inputTz);
+  return `${formatLongDateWithOrdinal(dateInInputZone)} @ ${segments.join(" // ")}`;
+}
+
+function formatLongDateWithOrdinal(dateTime) {
+  const weekday = dateTime.toFormat("cccc");
+  const month = dateTime.toFormat("LLLL");
+  const day = dateTime.day;
+  return `${weekday}, ${month} ${day}${getOrdinalSuffix(day)}`;
+}
+
+function getOrdinalSuffix(day) {
+  if (day >= 11 && day <= 13) return "th";
+  const last = day % 10;
+  if (last === 1) return "st";
+  if (last === 2) return "nd";
+  if (last === 3) return "rd";
+  return "th";
+}
+
+function formatSubjectTimeSegment(dateTime, abbr) {
+  const minute = dateTime.toFormat("mm");
+  const timePart = minute === "00" ? dateTime.toFormat("h") : dateTime.toFormat("h:mm");
+  const meridiem = dateTime.toFormat("a").toUpperCase();
+  return `${timePart}${meridiem} ${abbr}`;
+}
+
 function startTicker() {
   stopTicker();
   ticker = setInterval(refresh, 1000);
@@ -366,7 +672,9 @@ function stopTicker() {
 }
 
 function renderFavorites() {
-  const favoriteEntries = LOCATIONS.filter((entry) => favorites.includes(entry.tz));
+  const favoriteEntries = favorites
+    .filter((tz) => isValidZone(tz))
+    .map((tz) => ({ label: getLabelForZone(tz), tz }));
 
   if (favoriteEntries.length === 0) {
     elements.favoritesList.classList.add("empty");
@@ -418,7 +726,7 @@ function loadFavorites() {
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter((tz) => LOCATIONS.some((entry) => entry.tz === tz));
+    return parsed.filter((tz) => typeof tz === "string" && isValidZone(tz));
   } catch {
     return [];
   }
@@ -430,6 +738,24 @@ function saveFavorites(items) {
 
 function formatLocationValue(entry) {
   return `${entry.label} (${entry.tz})`;
+}
+
+function formatSearchValue(entry) {
+  if (entry.kind === "country-multi") {
+    return `${entry.label} (country: ${entry.zones.length} time zones)`;
+  }
+  if (entry.kind === "country-single") {
+    return `${entry.label} (country)`;
+  }
+  return formatLocationValue(entry);
+}
+
+function getSearchTokens(entry) {
+  const parts = [entry.label];
+  if (entry.country) parts.push(entry.country);
+  if (entry.tz) parts.push(entry.tz);
+  if (entry.zones) parts.push(...entry.zones);
+  return parts.join(" ").toLowerCase();
 }
 
 async function copyText(text, successMessage) {
