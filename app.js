@@ -4,6 +4,11 @@ const HOME_TZ = "America/New_York";
 const HOME_LABEL = "ET";
 const FAVORITES_KEY = "et-time-buddy-favorites";
 const COMPARISON_LIST_KEY = "et-time-buddy-comparison-list";
+const CITY_LOOKUP_CACHE_KEY = "et-time-buddy-city-lookup-cache-v1";
+const MAX_TYPEAHEAD_OPTIONS = 8;
+const MAX_CITY_LOOKUP_CACHE_ENTRIES = 200;
+const CITY_LOOKUP_TIMEOUT_MS = 8000;
+const CITY_SUGGEST_DEBOUNCE_MS = 260;
 
 const LOCATIONS = [
   { label: "New York", tz: "America/New_York" },
@@ -318,14 +323,16 @@ function getLabelForZone(tz) {
 
 const elements = {
   locationInput: document.getElementById("locationInput"),
-  locationsList: document.getElementById("locationsList"),
+  locationSuggestions: document.getElementById("locationSuggestions"),
   addBtn: document.getElementById("addBtn"),
   favoriteBtn: document.getElementById("favoriteBtn"),
   favoritesList: document.getElementById("favoritesList"),
   comparisonList: document.getElementById("comparisonList"),
   customTimeSection: document.getElementById("customTimeSection"),
   dateInput: document.getElementById("dateInput"),
-  timeInput: document.getElementById("timeInput"),
+  timeHourInput: document.getElementById("timeHourInput"),
+  timeMinuteInput: document.getElementById("timeMinuteInput"),
+  timeMeridiemSelect: document.getElementById("timeMeridiemSelect"),
   inputTzSelect: document.getElementById("inputTzSelect"),
   resultsList: document.getElementById("resultsList"),
   copyAllBtn: document.getElementById("copyAllBtn"),
@@ -337,11 +344,15 @@ let favorites = loadFavorites();
 let cityLookupCache = loadCityLookupCache();
 let ticker = null;
 let lastRenderedLines = [];
+let lastCopyText = "";
+let locationSuggestions = [];
+let activeSuggestionIndex = -1;
+let citySuggestTimer = null;
+let citySuggestSeq = 0;
 
 initialize();
 
 function initialize() {
-  fillDatalist();
   syncLocationInputWithFirst();
 
   const now = DateTime.now().setZone(HOME_TZ);
@@ -352,20 +363,56 @@ function initialize() {
   renderComparisonList();
   renderFavorites();
   populateInputTzSelect();
+  updateCopyButtonLabel();
   refresh();
   startTicker();
 }
 
 function bindEvents() {
-  elements.addBtn.addEventListener("click", () => {
-    const entry = getSelectionFromInput();
-    if (entry) {
-      addToComparisonList(entry);
-      renderComparisonList();
-      populateInputTzSelect();
-      saveComparisonList(comparisonZones);
-      refresh();
+  elements.addBtn.addEventListener("click", attemptAddFromInput);
+
+  elements.locationInput.addEventListener("input", () => {
+    renderLocationSuggestions(elements.locationInput.value.trim());
+    renderFavoriteButtonState();
+  });
+
+  elements.locationInput.addEventListener("keydown", (event) => {
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      moveSuggestionSelection(1);
+      return;
     }
+
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      moveSuggestionSelection(-1);
+      return;
+    }
+
+    if (event.key === "Enter") {
+      event.preventDefault();
+      const highlighted = getActiveSuggestion();
+      if (highlighted) {
+        elements.locationInput.value = formatSearchValue(highlighted);
+        clearLocationSuggestions();
+        attemptAddFromInput(highlighted);
+        return;
+      }
+      attemptAddFromInput();
+      return;
+    }
+
+    if (event.key === "Escape") {
+      clearLocationSuggestions();
+    }
+  });
+
+  elements.locationInput.addEventListener("blur", () => {
+    window.setTimeout(clearLocationSuggestions, 120);
+  });
+
+  elements.locationInput.addEventListener("focus", () => {
+    renderLocationSuggestions(elements.locationInput.value.trim());
   });
 
   elements.locationInput.addEventListener("change", () => {
@@ -373,11 +420,13 @@ function bindEvents() {
   });
 
   elements.favoriteBtn.addEventListener("click", () => {
-    const entry = getSelectionFromInput();
-    if (entry) {
+    const entry = getSelectionFromInput({ normalizeInput: true });
+    if (entry && entry.tz) {
       toggleFavorite(entry.tz);
       renderFavorites();
       renderFavoriteButtonState();
+    } else if (entry && entry.kind === "country-multi") {
+      elements.copyFeedback.textContent = "Pick a city or exact timezone before favoriting a multi-timezone country.";
     }
   });
 
@@ -391,31 +440,373 @@ function bindEvents() {
       } else {
         stopTicker();
       }
+      updateCopyButtonLabel();
       populateInputTzSelect();
       refresh();
     });
   });
 
-  [elements.dateInput, elements.timeInput, elements.inputTzSelect].forEach((el) => {
+  [elements.dateInput, elements.timeHourInput, elements.timeMinuteInput, elements.timeMeridiemSelect, elements.inputTzSelect].forEach((el) => {
     if (el) el.addEventListener("input", refresh);
     if (el) el.addEventListener("change", refresh);
   });
 
   elements.copyAllBtn.addEventListener("click", () => {
-    const text = lastRenderedLines.join("\n");
-    copyText(text, "All times copied.");
+    const success = getMode() === "pick" ? "Email subject copied." : "All times copied.";
+    copyText(lastCopyText, success);
   });
 }
 
-function getSelectionFromInput() {
+async function attemptAddFromInput(selectedOverride = null) {
+  clearLocationSuggestions();
+  const inputValue = elements.locationInput.value.trim();
+  let selected = selectedOverride || getSelectionFromInput({ normalizeInput: true });
+
+  if (!selected && inputValue) {
+    elements.copyFeedback.textContent = `Searching "${inputValue}"...`;
+    const remote = await lookupCityByName(inputValue);
+    if (remote?.entry) {
+      selected = remote.entry;
+      elements.locationInput.value = formatLocationValue(remote.entry);
+    } else if (remote?.suggestions?.length) {
+      showLocationSuggestions(remote.suggestions);
+      elements.copyFeedback.textContent = remote.error || "Multiple matches found. Pick one from the list.";
+      return;
+    } else {
+      elements.copyFeedback.textContent = remote?.error || `No timezone found for "${inputValue}".`;
+      return;
+    }
+  }
+
+  if (!selected) {
+    const value = inputValue;
+    elements.copyFeedback.textContent = value
+      ? `No timezone found for "${value}". Try a city, country, or IANA zone (e.g. Europe/London).`
+      : "Type a city, country, or timezone above, then click Add.";
+    return;
+  }
+
+  const { entry, note } = resolveEntryForAdd(selected);
+  const addStatus = addToComparisonList(entry);
+
+  if (addStatus === "added") {
+    renderComparisonList();
+    populateInputTzSelect();
+    saveComparisonList(comparisonZones);
+    refresh();
+    elements.locationInput.value = "";
+    renderFavoriteButtonState();
+    elements.copyFeedback.textContent = note || "";
+    return;
+  }
+
+  if (addStatus === "home-zone") {
+    elements.copyFeedback.textContent = `${entry.label} uses ${HOME_LABEL}, which is already shown.`;
+    return;
+  }
+
+  elements.copyFeedback.textContent = `${entry.label} is already in your comparison list.`;
+}
+
+function resolveEntryForAdd(selected) {
+  if (selected.kind === "country-multi") {
+    const primaryTz = selected.zones[0];
+    const primaryLabel = deriveLabelFromZone(primaryTz);
+    return {
+      entry: {
+        label: `${selected.label} (${primaryLabel})`,
+        tz: primaryTz
+      },
+      note: `${selected.label} has ${selected.zones.length} time zones. Added ${primaryTz}.`
+    };
+  }
+
+  if (selected.kind === "country-single") {
+    return {
+      entry: {
+        label: selected.label,
+        tz: selected.tz
+      },
+      note: ""
+    };
+  }
+
+  return {
+    entry: selected,
+    note: ""
+  };
+}
+
+function getMatchingSearchEntries(query) {
+  const normalizedQuery = query.toLowerCase();
+  return getSearchableZones()
+    .filter((entry) => getSearchTokens(entry).includes(normalizedQuery))
+    .slice(0, MAX_TYPEAHEAD_OPTIONS);
+}
+
+async function lookupCityByName(query) {
+  const normalizedQuery = query.trim().toLowerCase();
+  if (!normalizedQuery) {
+    return { entry: null, error: "Type a city name first." };
+  }
+
+  const cached = cityLookupCache[normalizedQuery];
+  if (cached && cached.tz && isValidZone(cached.tz)) {
+    return {
+      entry: { label: cached.label, tz: cached.tz, kind: "zone" }
+    };
+  }
+
+  try {
+    const results = await fetchCityLookupResults(query, MAX_TYPEAHEAD_OPTIONS);
+    const mapped = results
+      .filter((item) => item?.timezone && isValidZone(item.timezone))
+      .map((item) => mapLookupResultToEntry(item));
+
+    const deduped = dedupeLookupEntries(mapped);
+    if (!deduped.length) {
+      return { entry: null, error: `No timezone found for "${query}".` };
+    }
+
+    if (deduped.length > 1) {
+      return {
+        entry: null,
+        suggestions: deduped,
+        error: `Multiple matches for "${query}". Choose the exact city below.`
+      };
+    }
+
+    const entry = deduped[0];
+    cityLookupCache[normalizedQuery] = { label: entry.label, tz: entry.tz, ts: Date.now() };
+    pruneCityLookupCache();
+    saveCityLookupCache(cityLookupCache);
+    return { entry };
+  } catch (_) {
+    return { entry: null, error: "Could not reach city lookup service. Check your connection and try again." };
+  }
+}
+
+async function fetchCityLookupResults(query, count = MAX_TYPEAHEAD_OPTIONS) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), CITY_LOOKUP_TIMEOUT_MS);
+  try {
+    const endpoint = "https://geocoding-api.open-meteo.com/v1/search";
+    const url = `${endpoint}?name=${encodeURIComponent(query)}&count=${count}&language=en&format=json`;
+    const response = await fetch(url, { signal: controller.signal });
+    if (!response.ok) throw new Error("lookup failed");
+    const data = await response.json();
+    return Array.isArray(data?.results) ? data.results : [];
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+function mapLookupResultToEntry(result) {
+  return {
+    label: formatRemoteLocationLabel(result),
+    tz: result.timezone,
+    kind: "zone",
+    source: "Geocoding lookup"
+  };
+}
+
+function dedupeLookupEntries(entries) {
+  const seen = new Set();
+  const deduped = [];
+  entries.forEach((entry) => {
+    const key = `${entry.label}|${entry.tz}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    deduped.push(entry);
+  });
+  return deduped;
+}
+
+function formatRemoteLocationLabel(result) {
+  const parts = [result.name];
+  if (result.admin1 && result.admin1 !== result.name) parts.push(result.admin1);
+  if (result.country) parts.push(result.country);
+  return parts.join(", ");
+}
+
+function loadCityLookupCache() {
+  try {
+    const raw = localStorage.getItem(CITY_LOOKUP_CACHE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return {};
+    return parsed;
+  } catch {
+    return {};
+  }
+}
+
+function saveCityLookupCache(cache) {
+  localStorage.setItem(CITY_LOOKUP_CACHE_KEY, JSON.stringify(cache));
+}
+
+function pruneCityLookupCache() {
+  const entries = Object.entries(cityLookupCache);
+  if (entries.length <= MAX_CITY_LOOKUP_CACHE_ENTRIES) return;
+
+  entries
+    .sort((a, b) => (a[1]?.ts || 0) - (b[1]?.ts || 0))
+    .slice(0, entries.length - MAX_CITY_LOOKUP_CACHE_ENTRIES)
+    .forEach(([key]) => {
+      delete cityLookupCache[key];
+    });
+}
+
+function renderLocationSuggestions(query) {
+  if (citySuggestTimer) {
+    clearTimeout(citySuggestTimer);
+    citySuggestTimer = null;
+  }
+
+  if (!query) {
+    clearLocationSuggestions();
+    return;
+  }
+
+  const localMatches = getMatchingSearchEntries(query);
+  if (localMatches.length > 0) {
+    locationSuggestions = localMatches;
+    activeSuggestionIndex = 0;
+    drawLocationSuggestions();
+    return;
+  }
+
+  if (query.length < 2) {
+    clearLocationSuggestions();
+    return;
+  }
+
+  const currentSeq = ++citySuggestSeq;
+  citySuggestTimer = setTimeout(async () => {
+    try {
+      const remoteResults = await fetchCityLookupResults(query, MAX_TYPEAHEAD_OPTIONS);
+      if (currentSeq !== citySuggestSeq) return;
+
+      const currentInput = elements.locationInput.value.trim().toLowerCase();
+      if (currentInput !== query.toLowerCase()) return;
+
+      locationSuggestions = remoteResults
+        .filter((item) => item?.timezone && isValidZone(item.timezone))
+        .map((item) => mapLookupResultToEntry(item))
+        .slice(0, MAX_TYPEAHEAD_OPTIONS);
+
+      activeSuggestionIndex = locationSuggestions.length ? 0 : -1;
+      drawLocationSuggestions();
+    } catch (_) {
+      if (currentSeq !== citySuggestSeq) return;
+      clearLocationSuggestions();
+    }
+  }, CITY_SUGGEST_DEBOUNCE_MS);
+}
+
+function showLocationSuggestions(entries) {
+  locationSuggestions = entries.slice(0, MAX_TYPEAHEAD_OPTIONS);
+  activeSuggestionIndex = locationSuggestions.length ? 0 : -1;
+  drawLocationSuggestions();
+}
+
+function drawLocationSuggestions() {
+  const container = elements.locationSuggestions;
+  if (!container) return;
+
+  container.innerHTML = "";
+  if (!locationSuggestions.length) {
+    container.classList.add("hidden");
+    return;
+  }
+
+  container.classList.remove("hidden");
+  locationSuggestions.forEach((entry, index) => {
+    const option = document.createElement("button");
+    option.type = "button";
+    option.className = "typeahead-option";
+    if (index === activeSuggestionIndex) option.classList.add("active");
+    option.textContent = formatSearchValue(entry);
+    option.addEventListener("mousedown", (event) => event.preventDefault());
+    option.addEventListener("click", () => {
+      elements.locationInput.value = formatSearchValue(entry);
+      attemptAddFromInput(entry);
+      renderFavoriteButtonState();
+      elements.locationInput.focus();
+    });
+    container.appendChild(option);
+  });
+}
+
+function moveSuggestionSelection(direction) {
+  if (!locationSuggestions.length) return;
+  activeSuggestionIndex = (activeSuggestionIndex + direction + locationSuggestions.length) % locationSuggestions.length;
+  const selected = getActiveSuggestion();
+  if (selected) {
+    elements.locationInput.value = formatSearchValue(selected);
+    renderFavoriteButtonState();
+  }
+  drawLocationSuggestions();
+}
+
+function getActiveSuggestion() {
+  if (activeSuggestionIndex < 0 || activeSuggestionIndex >= locationSuggestions.length) return null;
+  return locationSuggestions[activeSuggestionIndex];
+}
+
+function clearLocationSuggestions() {
+  if (citySuggestTimer) {
+    clearTimeout(citySuggestTimer);
+    citySuggestTimer = null;
+  }
+  citySuggestSeq += 1;
+  locationSuggestions = [];
+  activeSuggestionIndex = -1;
+  const container = elements.locationSuggestions;
+  if (!container) return;
+  container.innerHTML = "";
+  container.classList.add("hidden");
+}
+
+function getSelectionFromInput(options = {}) {
+  const { normalizeInput = false } = options;
   const value = elements.locationInput.value.trim();
-  const exact = LOCATIONS.find((entry) => formatLocationValue(entry) === value);
-  if (exact) return exact;
-  const byTz = LOCATIONS.find((entry) => entry.tz.toLowerCase() === value.toLowerCase());
+  if (!value) return null;
+
+  const searchable = getSearchableZones();
+
+  const exactFormat = searchable.find((entry) => formatSearchValue(entry) === value);
+  if (exactFormat) return exactFormat;
+
+  const byTz = searchable.find((entry) => entry.tz && entry.tz.toLowerCase() === value.toLowerCase());
   if (byTz) {
-    elements.locationInput.value = formatLocationValue(byTz);
+    if (normalizeInput) {
+      elements.locationInput.value = formatSearchValue(byTz);
+    }
     return byTz;
   }
+
+  const valueLower = value.toLowerCase();
+  const byLabelExact = searchable.find(
+    (entry) => entry.label.toLowerCase() === valueLower
+  );
+  if (byLabelExact) {
+    if (normalizeInput) {
+      elements.locationInput.value = formatSearchValue(byLabelExact);
+    }
+    return byLabelExact;
+  }
+
+  const byLabelContains = searchable.find(
+    (entry) => getSearchTokens(entry).includes(valueLower)
+  );
+  if (byLabelContains) {
+    if (normalizeInput) {
+      elements.locationInput.value = formatSearchValue(byLabelContains);
+    }
+    return byLabelContains;
+  }
+
   return null;
 }
 
@@ -429,8 +820,14 @@ function syncLocationInputWithFirst() {
 }
 
 function addToComparisonList(entry) {
-  if (comparisonZones.some((z) => z.tz === entry.tz)) return;
-  comparisonZones.push({ label: entry.label, tz: entry.tz });
+  if (entry.tz === HOME_TZ) return "home-zone";
+  if (comparisonZones.some((z) => z.tz === entry.tz)) return "duplicate";
+  comparisonZones.push({
+    label: entry.label,
+    tz: entry.tz,
+    source: entry.source || "Manual selection"
+  });
+  return "added";
 }
 
 function removeFromComparisonList(tz) {
@@ -447,10 +844,13 @@ function loadComparisonList() {
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter((item) => item && item.tz && LOCATIONS.some((e) => e.tz === item.tz)).map((item) => ({
-      label: LOCATIONS.find((e) => e.tz === item.tz).label,
-      tz: item.tz
-    }));
+    return parsed
+      .filter((item) => item && item.tz && isValidZone(item.tz))
+      .map((item) => ({
+        label: item.label || getLabelForZone(item.tz),
+        tz: item.tz,
+        source: item.source || "Manual selection"
+      }));
   } catch {
     return [];
   }
@@ -477,6 +877,9 @@ function renderComparisonList() {
     const labelSpan = document.createElement("span");
     labelSpan.className = "comparison-label";
     labelSpan.textContent = entry.label;
+    const sourceSpan = document.createElement("span");
+    sourceSpan.className = "comparison-source";
+    sourceSpan.textContent = entry.source || "Manual selection";
     const tzSpan = document.createElement("span");
     tzSpan.className = "comparison-iana";
     tzSpan.textContent = entry.tz;
@@ -487,6 +890,7 @@ function renderComparisonList() {
     removeBtn.textContent = "×";
     removeBtn.addEventListener("click", () => removeFromComparisonList(entry.tz));
     row.appendChild(labelSpan);
+    row.appendChild(sourceSpan);
     row.appendChild(tzSpan);
     row.appendChild(removeBtn);
     elements.comparisonList.appendChild(row);
@@ -494,6 +898,7 @@ function renderComparisonList() {
 }
 
 function populateInputTzSelect() {
+  const previousValue = elements.inputTzSelect.value;
   const options = [];
   options.push({ value: HOME_TZ, label: `${HOME_LABEL} (${HOME_TZ})` });
   comparisonZones.forEach((z) => {
@@ -507,6 +912,10 @@ function populateInputTzSelect() {
     option.textContent = opt.label;
     elements.inputTzSelect.appendChild(option);
   });
+
+  if (options.some((opt) => opt.value === previousValue)) {
+    elements.inputTzSelect.value = previousValue;
+  }
 }
 
 function refresh() {
@@ -517,12 +926,14 @@ function refresh() {
     p.textContent = "Invalid date/time.";
     elements.resultsList.appendChild(p);
     lastRenderedLines = [];
+    lastCopyText = "";
     return;
   }
 
   const etDateTime = instant.setZone(HOME_TZ);
   const rows = [];
   const linesForCopy = [];
+  const subjectTimeSegments = [];
 
   // ET row first
   const etAbbr = getOffsetAbbreviation(etDateTime);
@@ -532,9 +943,11 @@ function refresh() {
     iana: HOME_TZ,
     formatted: etFormatted,
     abbr: etAbbr,
-    difference: null
+    difference: null,
+    removable: false
   });
   linesForCopy.push(`${HOME_LABEL} (${HOME_TZ}): ${etFormatted} ${etAbbr}`);
+  subjectTimeSegments.push(formatSubjectTimeSegment(etDateTime, etAbbr));
 
   // Each comparison zone
   comparisonZones.forEach((entry) => {
@@ -547,12 +960,18 @@ function refresh() {
       iana: entry.tz,
       formatted,
       abbr,
-      difference
+      difference,
+      removable: true,
+      source: entry.source || "Manual selection"
     });
     linesForCopy.push(`${entry.label} (${entry.tz}): ${formatted} ${abbr} — ${difference}`);
+    subjectTimeSegments.push(formatSubjectTimeSegment(zoned, abbr));
   });
 
   lastRenderedLines = linesForCopy;
+  lastCopyText = getMode() === "pick"
+    ? formatPickModeSubject(instant, subjectTimeSegments)
+    : linesForCopy.join("\n");
   renderResults(rows);
   renderFavoriteButtonState();
 }
@@ -561,18 +980,66 @@ function getReferenceInstant() {
   if (getMode() === "now") {
     return DateTime.now();
   }
-  if (!elements.dateInput.value || !elements.timeInput.value) return null;
+  if (!elements.dateInput.value) return null;
   const inputTz = elements.inputTzSelect.value || HOME_TZ;
-  const isoLocal = `${elements.dateInput.value}T${elements.timeInput.value}`;
+  const selected = getSelectedTimeParts();
+  if (!selected) return null;
+  const { hour24, minute } = selected;
+  const hour = String(hour24).padStart(2, "0");
+  const isoLocal = `${elements.dateInput.value}T${hour}:${minute}`;
   return DateTime.fromISO(isoLocal, { zone: inputTz });
 }
 
+function getSelectedTimeParts() {
+  const hourRaw = (elements.timeHourInput.value || "").trim();
+  const minuteRaw = (elements.timeMinuteInput.value || "").trim();
+  if (!hourRaw) return null;
+
+  const hour12 = Number(hourRaw);
+  const minuteNum = minuteRaw ? Number(minuteRaw) : 0;
+  if (!Number.isInteger(hour12) || hour12 < 1 || hour12 > 12) return null;
+  if (!Number.isInteger(minuteNum) || minuteNum < 0 || minuteNum > 59) return null;
+
+  const meridiem = elements.timeMeridiemSelect.value || "AM";
+
+  let hour24 = hour12 % 12;
+  if (meridiem === "PM") hour24 += 12;
+  const minute = String(minuteNum).padStart(2, "0");
+  return { hour24, minute };
+}
+
+function setTimePickerFromDateTime(dateTime) {
+  const hour = dateTime.toFormat("h");
+  const minute = dateTime.toFormat("mm");
+  const meridiem = dateTime.toFormat("a").toUpperCase();
+  elements.timeHourInput.value = hour;
+  elements.timeMinuteInput.value = minute;
+  elements.timeMeridiemSelect.value = meridiem;
+}
+
 function getOffsetAbbreviation(dateTime) {
-  try {
-    const abbr = dateTime.toFormat("ZZZZ");
-    if (abbr && typeof abbr === "string") return abbr;
-  } catch (_) {}
-  return "";
+  const live = (dateTime.toFormat("z") || "").trim();
+  if (isNamedAbbreviation(live)) return live;
+
+  const short = dateTime.offsetNameShort || "";
+  if (isNamedAbbreviation(short)) return short;
+
+  const mapped = getMappedAbbreviation(dateTime.zoneName, dateTime.isInDST);
+  if (mapped) return mapped;
+  return short;
+}
+
+function isNamedAbbreviation(value) {
+  if (!value) return false;
+  if (value.startsWith("GMT")) return false;
+  return /^[A-Z]{2,6}$/.test(value);
+}
+
+function getMappedAbbreviation(zoneName, isInDST) {
+  const config = ZONE_ABBREVIATIONS[zoneName];
+  if (!config) return "";
+  if (isInDST && config.dst) return config.dst;
+  return config.std || config.dst || "";
 }
 
 function formatLongWithAbbr(dateTime) {
@@ -605,11 +1072,32 @@ function renderResults(rows) {
     const ianaSpan = document.createElement("span");
     ianaSpan.className = "result-iana";
     ianaSpan.textContent = row.iana;
+    const abbrSpan = document.createElement("span");
+    abbrSpan.className = "result-abbr";
+    abbrSpan.textContent = row.abbr || "—";
     header.appendChild(labelSpan);
     header.appendChild(ianaSpan);
+    if (row.source) {
+      const sourceSpan = document.createElement("span");
+      sourceSpan.className = "result-source";
+      sourceSpan.textContent = row.source;
+      header.appendChild(sourceSpan);
+    }
+    header.appendChild(abbrSpan);
+
+    if (row.removable) {
+      const removeBtn = document.createElement("button");
+      removeBtn.type = "button";
+      removeBtn.className = "remove-btn";
+      removeBtn.setAttribute("aria-label", `Remove ${row.label}`);
+      removeBtn.textContent = "×";
+      removeBtn.addEventListener("click", () => removeFromComparisonList(row.iana));
+      header.appendChild(removeBtn);
+    }
+
     const timeLine = document.createElement("p");
     timeLine.className = "result-time";
-    timeLine.textContent = row.abbr ? `${row.formatted} ${row.abbr}` : row.formatted;
+    timeLine.textContent = row.formatted;
     card.appendChild(header);
     card.appendChild(timeLine);
     if (row.difference != null) {
