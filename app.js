@@ -253,7 +253,13 @@ const ZONE_ABBREVIATIONS = {
   "Australia/Brisbane": { std: "AEST" }
 };
 
+const ZONE_CODE_ALIAS_TO_TZ = {
+  UTC: "Etc/UTC",
+  GMT: "Etc/UTC"
+};
+
 let allTimeZonesCache = null;
+let zoneCodeToZonesCache = null;
 
 function getAllTimeZones() {
   if (allTimeZonesCache) return allTimeZonesCache;
@@ -481,8 +487,8 @@ async function attemptAddFromInput(selectedOverride = null) {
   if (!selected) {
     const value = inputValue;
     elements.copyFeedback.textContent = value
-      ? `No timezone found for "${value}". Try a city, country, or IANA zone (e.g. Europe/London).`
-      : "Type a city, country, or timezone above, then click Add.";
+      ? `No timezone found for "${value}". Try a timezone code (e.g. IST), city, country, or IANA zone (e.g. Europe/London).`
+      : "Type a timezone code, city, country, or IANA timezone above, then click Add.";
     return;
   }
 
@@ -784,6 +790,14 @@ function getSelectionFromInput(options = {}) {
       elements.locationInput.value = formatSearchValue(byTz);
     }
     return byTz;
+  }
+
+  const byCode = getZoneEntryByCode(value);
+  if (byCode) {
+    if (normalizeInput) {
+      elements.locationInput.value = formatSearchValue(byCode);
+    }
+    return byCode;
   }
 
   const valueLower = value.toLowerCase();
@@ -1244,6 +1258,72 @@ function getSearchTokens(entry) {
   if (entry.tz) parts.push(entry.tz);
   if (entry.zones) parts.push(...entry.zones);
   return parts.join(" ").toLowerCase();
+}
+
+function getZoneEntryByCode(rawValue) {
+  const code = rawValue.trim().toUpperCase();
+  if (!/^[A-Z]{2,6}$/.test(code)) return null;
+
+  const aliasTz = ZONE_CODE_ALIAS_TO_TZ[code];
+  if (aliasTz && isValidZone(aliasTz)) {
+    return {
+      label: getLabelForZone(aliasTz),
+      tz: aliasTz,
+      kind: "zone",
+      source: `Timezone code (${code})`
+    };
+  }
+
+  const codeMap = getZoneCodeToZonesMap();
+  const matches = codeMap.get(code);
+  if (!matches || !matches.length) return null;
+
+  const preferred = getPreferredZone(matches);
+  return {
+    label: getLabelForZone(preferred),
+    tz: preferred,
+    kind: "zone",
+    source: `Timezone code (${code})`
+  };
+}
+
+function getPreferredZone(zones) {
+  const preferredOrder = [...LOCATIONS.map((entry) => entry.tz), ...CITY_ALIASES.map((entry) => entry.tz)];
+  const fromPreferred = preferredOrder.find((tz) => zones.includes(tz));
+  if (fromPreferred) return fromPreferred;
+
+  const valid = zones.filter((tz) => isValidZone(tz));
+  return valid[0] || zones[0];
+}
+
+function getZoneCodeToZonesMap() {
+  if (zoneCodeToZonesCache) return zoneCodeToZonesCache;
+
+  const map = new Map();
+  const pushCode = (code, tz) => {
+    if (!code || !tz) return;
+    const normalized = String(code).trim().toUpperCase();
+    if (!/^[A-Z]{2,6}$/.test(normalized)) return;
+    if (!isValidZone(tz)) return;
+    const current = map.get(normalized) || [];
+    if (!current.includes(tz)) current.push(tz);
+    map.set(normalized, current);
+  };
+
+  Object.entries(ZONE_ABBREVIATIONS).forEach(([tz, config]) => {
+    pushCode(config?.std, tz);
+    pushCode(config?.dst, tz);
+  });
+
+  getAllTimeZones().forEach((entry) => {
+    const zoned = DateTime.now().setZone(entry.tz);
+    if (!zoned.isValid) return;
+    pushCode(getOffsetAbbreviation(zoned), entry.tz);
+    pushCode(zoned.offsetNameShort, entry.tz);
+  });
+
+  zoneCodeToZonesCache = map;
+  return map;
 }
 
 async function copyText(text, successMessage) {
