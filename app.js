@@ -840,8 +840,10 @@ function getSelectionFromInput(options = {}) {
 function syncLocationInputWithFirst() {
   if (comparisonZones.length) {
     elements.locationInput.value = formatLocationValue(comparisonZones[0]);
+    elements.copyFeedback.textContent = "";
   } else {
-    elements.locationInput.value = formatLocationValue(LOCATIONS[1]);
+    elements.locationInput.value = "";
+    elements.copyFeedback.textContent = "Type a timezone code, city, country, or IANA timezone above, then click Add.";
   }
   renderFavoriteButtonState();
 }
