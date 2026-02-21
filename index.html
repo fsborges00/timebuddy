@@ -4,6 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ET Time Buddy</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
   <script src="https://cdn.jsdelivr.net/npm/luxon@3.5.0/build/global/luxon.min.js" defer></script>
   <script src="app.js?v=20260214a" defer></script>
@@ -20,8 +23,13 @@
         <label for="locationInput">Add location / timezone</label>
         <div class="location-input-wrap">
           <input id="locationInput" placeholder="Type a timezone code, city, country, or timezone" autocomplete="off" />
-          <button id="addBtn" type="button">Add (+)</button>
-          <button id="favoriteBtn" class="icon-btn" type="button" aria-label="Toggle favorite" title="Toggle favorite">☆</button>
+          <div class="favorites-menu-wrap">
+            <button id="favoriteBtn" class="icon-btn" type="button" aria-label="Show saved favorites" title="Saved favorites" aria-expanded="false" aria-controls="favoritesMenu">☆</button>
+            <div id="favoritesMenu" class="favorites-menu hidden" aria-label="Saved favorites">
+              <p class="favorites-menu-title">Saved favorites</p>
+              <div id="favoritesMenuList" class="favorites-menu-list empty">No favorites yet.</div>
+            </div>
+          </div>
         </div>
         <div id="locationSuggestions" class="typeahead-list hidden" role="listbox" aria-label="Location suggestions"></div>
       </div>
@@ -31,15 +39,10 @@
         <div id="comparisonList" class="comparison-list empty">No zones added. Use the selector above and "+ Add" to compare.</div>
       </section>
 
-      <section class="favorites" aria-label="Favorite timezones">
-        <h2>Favorites</h2>
-        <div id="favoritesList" class="favorites-list empty">No favorites yet.</div>
-      </section>
-
       <fieldset class="mode-toggle">
         <legend>Mode</legend>
-        <label><input type="radio" name="mode" value="now" checked /> Now</label>
-        <label><input type="radio" name="mode" value="pick" /> Pick date/time</label>
+        <label><input type="radio" name="mode" value="now" /> Live</label>
+        <label><input type="radio" name="mode" value="pick" checked /> Custom</label>
       </fieldset>
 
       <div id="customTimeSection" class="custom-time hidden" aria-hidden="true">
@@ -61,9 +64,17 @@
             </div>
           </div>
         </div>
-        <div class="field-row">
-          <label for="inputTzSelect">Input time zone</label>
-          <select id="inputTzSelect" aria-label="Input time zone"></select>
+        <div class="advanced-settings">
+          <button id="advancedSettingsToggle" class="advanced-settings-toggle" type="button" aria-expanded="false" aria-controls="advancedSettingsContent">
+            <span>Advanced settings</span>
+            <span class="advanced-settings-chevron" aria-hidden="true">▾</span>
+          </button>
+          <div id="advancedSettingsContent" class="advanced-settings-content hidden">
+            <div class="field-row">
+              <label for="inputTzSelect">Input time zone</label>
+              <select id="inputTzSelect" aria-label="Input time zone"></select>
+            </div>
+          </div>
         </div>
       </div>
     </section>

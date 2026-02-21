@@ -335,11 +335,13 @@ function getLabelForZone(tz) {
 const elements = {
   locationInput: document.getElementById("locationInput"),
   locationSuggestions: document.getElementById("locationSuggestions"),
-  addBtn: document.getElementById("addBtn"),
   favoriteBtn: document.getElementById("favoriteBtn"),
-  favoritesList: document.getElementById("favoritesList"),
+  favoritesMenu: document.getElementById("favoritesMenu"),
+  favoritesMenuList: document.getElementById("favoritesMenuList"),
   comparisonList: document.getElementById("comparisonList"),
   customTimeSection: document.getElementById("customTimeSection"),
+  advancedSettingsToggle: document.getElementById("advancedSettingsToggle"),
+  advancedSettingsContent: document.getElementById("advancedSettingsContent"),
   dateInput: document.getElementById("dateInput"),
   timeHourInput: document.getElementById("timeHourInput"),
   timeMinuteInput: document.getElementById("timeMinuteInput"),
@@ -360,6 +362,7 @@ let locationSuggestions = [];
 let activeSuggestionIndex = -1;
 let citySuggestTimer = null;
 let citySuggestSeq = 0;
+let favoritesMenuOpen = false;
 
 initialize();
 
@@ -371,20 +374,26 @@ function initialize() {
   setTimePickerFromDateTime(now);
 
   bindEvents();
+  const liveMode = getMode() === "now";
+  elements.customTimeSection.classList.toggle("hidden", liveMode);
+  elements.customTimeSection.setAttribute("aria-hidden", String(liveMode));
+  setAdvancedSettingsOpen(false);
+  setFavoritesMenuOpen(false);
   renderComparisonList();
   renderFavorites();
   populateInputTzSelect();
   updateCopyButtonLabel();
   refresh();
-  startTicker();
+  if (liveMode) {
+    startTicker();
+  } else {
+    stopTicker();
+  }
 }
 
 function bindEvents() {
-  elements.addBtn.addEventListener("click", attemptAddFromInput);
-
   elements.locationInput.addEventListener("input", () => {
     renderLocationSuggestions(elements.locationInput.value.trim());
-    renderFavoriteButtonState();
   });
 
   elements.locationInput.addEventListener("keydown", (event) => {
@@ -426,19 +435,12 @@ function bindEvents() {
     renderLocationSuggestions(elements.locationInput.value.trim());
   });
 
-  elements.locationInput.addEventListener("change", () => {
-    renderFavoriteButtonState();
+  elements.favoriteBtn.addEventListener("click", () => {
+    setFavoritesMenuOpen(!favoritesMenuOpen);
   });
 
-  elements.favoriteBtn.addEventListener("click", () => {
-    const entry = getSelectionFromInput({ normalizeInput: true });
-    if (entry && entry.tz) {
-      toggleFavorite(entry.tz);
-      renderFavorites();
-      renderFavoriteButtonState();
-    } else if (entry && entry.kind === "country-multi") {
-      elements.copyFeedback.textContent = "Pick a city or exact timezone before favoriting a multi-timezone country.";
-    }
+  elements.advancedSettingsToggle.addEventListener("click", () => {
+    setAdvancedSettingsOpen(elements.advancedSettingsToggle.getAttribute("aria-expanded") !== "true");
   });
 
   document.querySelectorAll('input[name="mode"]').forEach((radio) => {
@@ -465,6 +467,23 @@ function bindEvents() {
   elements.copyAllBtn.addEventListener("click", () => {
     const success = getMode() === "pick" ? "Email subject copied." : "All times copied.";
     copyText(lastCopyText, success);
+  });
+
+  document.addEventListener("click", (event) => {
+    if (!(event.target instanceof Element)) return;
+    if (!event.target.closest(".comparison-info-wrap")) {
+      closeAllComparisonInfoBubbles();
+    }
+    if (!event.target.closest(".favorites-menu-wrap")) {
+      setFavoritesMenuOpen(false);
+    }
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      closeAllComparisonInfoBubbles();
+      setFavoritesMenuOpen(false);
+    }
   });
 }
 
@@ -506,7 +525,6 @@ async function attemptAddFromInput(selectedOverride = null) {
     saveComparisonList(comparisonZones);
     refresh();
     elements.locationInput.value = "";
-    renderFavoriteButtonState();
     elements.copyFeedback.textContent = note || "";
     return;
   }
@@ -750,7 +768,6 @@ function drawLocationSuggestions() {
     option.addEventListener("click", () => {
       elements.locationInput.value = formatSearchValue(entry);
       attemptAddFromInput(entry);
-      renderFavoriteButtonState();
       elements.locationInput.focus();
     });
     container.appendChild(option);
@@ -763,7 +780,6 @@ function moveSuggestionSelection(direction) {
   const selected = getActiveSuggestion();
   if (selected) {
     elements.locationInput.value = formatSearchValue(selected);
-    renderFavoriteButtonState();
   }
   drawLocationSuggestions();
 }
@@ -845,7 +861,6 @@ function syncLocationInputWithFirst() {
     elements.locationInput.value = "";
     elements.copyFeedback.textContent = "Type a timezone code, city, country, or IANA timezone above, then click Add.";
   }
-  renderFavoriteButtonState();
 }
 
 function addToComparisonList(entry) {
@@ -904,15 +919,60 @@ function renderComparisonList() {
   comparisonZones.forEach((entry) => {
     const row = document.createElement("div");
     row.className = "comparison-row";
+
     const labelSpan = document.createElement("span");
     labelSpan.className = "comparison-label";
     labelSpan.textContent = entry.label;
-    const sourceSpan = document.createElement("span");
-    sourceSpan.className = "comparison-source";
-    sourceSpan.textContent = entry.source || "Manual selection";
-    const tzSpan = document.createElement("span");
-    tzSpan.className = "comparison-iana";
-    tzSpan.textContent = entry.tz;
+
+    const infoWrap = document.createElement("div");
+    infoWrap.className = "comparison-info-wrap";
+
+    const infoBtn = document.createElement("button");
+    infoBtn.type = "button";
+    infoBtn.className = "comparison-info-btn";
+    infoBtn.setAttribute("aria-label", `Show details for ${entry.label}`);
+    infoBtn.setAttribute("aria-expanded", "false");
+    const bubbleId = `comparison-info-${entry.tz.replace(/[^a-z0-9]/gi, "-").toLowerCase()}`;
+    infoBtn.setAttribute("aria-controls", bubbleId);
+    infoBtn.textContent = "ℹ";
+
+    const infoBubble = document.createElement("div");
+    infoBubble.className = "comparison-info-bubble";
+    infoBubble.id = bubbleId;
+    infoBubble.setAttribute("role", "tooltip");
+    infoBubble.setAttribute("aria-hidden", "true");
+    infoBubble.textContent = `${entry.source || "Manual selection"} • ${entry.tz}`;
+
+    infoBtn.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const isOpen = infoBubble.classList.contains("is-open");
+      closeAllComparisonInfoBubbles();
+      if (!isOpen) {
+        infoBubble.classList.add("is-open");
+        infoBubble.setAttribute("aria-hidden", "false");
+        infoBtn.setAttribute("aria-expanded", "true");
+      }
+    });
+
+    infoWrap.appendChild(infoBtn);
+    infoWrap.appendChild(infoBubble);
+
+    const favoriteToggleBtn = document.createElement("button");
+    favoriteToggleBtn.type = "button";
+    favoriteToggleBtn.className = "comparison-fav-btn";
+    const isFavorite = favorites.includes(entry.tz);
+    favoriteToggleBtn.textContent = isFavorite ? "★" : "☆";
+    favoriteToggleBtn.setAttribute(
+      "aria-label",
+      `${isFavorite ? "Remove" : "Add"} ${entry.label} ${isFavorite ? "from" : "to"} favorites`
+    );
+    favoriteToggleBtn.setAttribute("aria-pressed", String(isFavorite));
+    favoriteToggleBtn.addEventListener("click", () => {
+      toggleFavorite(entry.tz);
+      renderComparisonList();
+      renderFavorites();
+    });
+
     const removeBtn = document.createElement("button");
     removeBtn.type = "button";
     removeBtn.className = "remove-btn";
@@ -920,10 +980,20 @@ function renderComparisonList() {
     removeBtn.textContent = "×";
     removeBtn.addEventListener("click", () => removeFromComparisonList(entry.tz));
     row.appendChild(labelSpan);
-    row.appendChild(sourceSpan);
-    row.appendChild(tzSpan);
+    row.appendChild(infoWrap);
+    row.appendChild(favoriteToggleBtn);
     row.appendChild(removeBtn);
     elements.comparisonList.appendChild(row);
+  });
+}
+
+function closeAllComparisonInfoBubbles() {
+  document.querySelectorAll(".comparison-info-bubble").forEach((bubble) => {
+    bubble.classList.remove("is-open");
+    bubble.setAttribute("aria-hidden", "true");
+  });
+  document.querySelectorAll(".comparison-info-btn").forEach((btn) => {
+    btn.setAttribute("aria-expanded", "false");
   });
 }
 
@@ -1010,7 +1080,6 @@ function refresh() {
     ? formatPickModeSubject(subjectEntries)
     : linesForCopy.join("\n");
   renderResults(rowsForRender);
-  renderFavoriteButtonState();
 }
 
 function getReferenceInstant() {
@@ -1239,13 +1308,13 @@ function renderFavorites() {
     .map((tz) => ({ label: getLabelForZone(tz), tz }));
 
   if (favoriteEntries.length === 0) {
-    elements.favoritesList.classList.add("empty");
-    elements.favoritesList.textContent = "No favorites yet.";
+    elements.favoritesMenuList.classList.add("empty");
+    elements.favoritesMenuList.textContent = "No favorites yet. Use the row star (☆) to save a timezone.";
     return;
   }
 
-  elements.favoritesList.classList.remove("empty");
-  elements.favoritesList.innerHTML = "";
+  elements.favoritesMenuList.classList.remove("empty");
+  elements.favoritesMenuList.innerHTML = "";
 
   favoriteEntries.forEach((entry) => {
     const button = document.createElement("button");
@@ -1259,18 +1328,23 @@ function renderFavorites() {
       renderComparisonList();
       populateInputTzSelect();
       saveComparisonList(comparisonZones);
-      renderFavoriteButtonState();
       refresh();
+      setFavoritesMenuOpen(false);
     });
-    elements.favoritesList.appendChild(button);
+    elements.favoritesMenuList.appendChild(button);
   });
 }
 
-function renderFavoriteButtonState() {
-  const entry = getSelectionFromInput();
-  const active = entry && favorites.includes(entry.tz);
-  elements.favoriteBtn.classList.toggle("active", active);
-  elements.favoriteBtn.textContent = active ? "★" : "☆";
+function setFavoritesMenuOpen(open) {
+  favoritesMenuOpen = Boolean(open);
+  elements.favoriteBtn.setAttribute("aria-expanded", String(favoritesMenuOpen));
+  elements.favoritesMenu.classList.toggle("hidden", !favoritesMenuOpen);
+}
+
+function setAdvancedSettingsOpen(open) {
+  const isOpen = Boolean(open);
+  elements.advancedSettingsToggle.setAttribute("aria-expanded", String(isOpen));
+  elements.advancedSettingsContent.classList.toggle("hidden", !isOpen);
 }
 
 function toggleFavorite(tz) {
