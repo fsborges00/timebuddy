@@ -1,17 +1,31 @@
 # ET Time Buddy
 
-ET Time Buddy is a GitHub Pages–ready static web app that compares a selected remote timezone with **Eastern Time (America/New_York)**.
+ET Time Buddy is a GitHub Pages–ready static web app for planning times across multiple time zones with **Eastern Time (America/New_York)** as a built-in anchor.
 
 It shows:
-- Remote current time
 - ET current time
+- Multiple selected timezone times
 - Time difference versus ET (ahead/behind)
 
 It also supports:
 - **Now** mode (auto-updates every second)
-- **Pick date/time** mode with conversion basis (`Remote` or `ET`)
+- **Pick date/time** mode with selectable input timezone
+- Add by timezone code (for example `IST`, `CST`), city, country, or IANA zone (`Europe/London`)
 - Favorites with local persistence (`localStorage`)
-- Copy buttons for readable ET/remote time strings
+- Chronological ordering in the Results panel by local date/time
+- Copy buttons for:
+  - Full time list
+  - Email-subject format grouped by day (uses `///` between day groups)
+
+## Email Subject Format (Pick Mode)
+
+In **Pick date/time** mode, copied email subjects are grouped by local calendar day and sorted by time within each day.
+
+Example:
+
+`February 25th @ 10:37PM CST // 11:37PM EST /// February 26th @ 5:37AM CET // 10:07AM IST // 1:37PM JST`
+
+This makes cross-day differences explicit (for example, when India or Japan is already on the next day).
 
 ## Why Luxon?
 The app uses the lightweight [Luxon](https://moment.github.io/luxon/#/) library (via CDN) to make timezone/date conversion reliable for arbitrary dates, including daylight saving transitions in both ET and remote zones.
@@ -40,6 +54,12 @@ python3 -m http.server 8000
 Then open:
 
 - `http://localhost:8000`
+
+## Quick usage notes
+
+- The location field starts empty by design.
+- In **Pick date/time** mode, use **Copy email subject** for grouped day-aware output.
+- In **Now** mode, use **Copy all times** for a line-by-line snapshot.
 
 ## Deploy on GitHub Pages
 
