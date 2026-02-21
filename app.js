@@ -962,8 +962,6 @@ function refresh() {
 
   const etDateTime = instant.setZone(HOME_TZ);
   const rows = [];
-  const linesForCopy = [];
-  const subjectEntries = [];
 
   // ET row first
   const etAbbr = getOffsetAbbreviation(etDateTime);
@@ -974,10 +972,9 @@ function refresh() {
     formatted: etFormatted,
     abbr: etAbbr,
     difference: null,
-    removable: false
+    removable: false,
+    dateTime: etDateTime
   });
-  linesForCopy.push(`${HOME_LABEL} (${HOME_TZ}): ${etFormatted} ${etAbbr}`);
-  subjectEntries.push({ dateTime: etDateTime, abbr: etAbbr });
 
   // Each comparison zone
   comparisonZones.forEach((entry) => {
@@ -992,17 +989,27 @@ function refresh() {
       abbr,
       difference,
       removable: true,
-      source: entry.source || "Manual selection"
+      source: entry.source || "Manual selection",
+      dateTime: zoned
     });
-    linesForCopy.push(`${entry.label} (${entry.tz}): ${formatted} ${abbr} — ${difference}`);
-    subjectEntries.push({ dateTime: zoned, abbr });
   });
+
+  rows.sort(compareRowsByLocalDateTime);
+
+  const linesForCopy = rows.map((row) => {
+    if (row.difference == null) {
+      return `${row.label} (${row.iana}): ${row.formatted} ${row.abbr}`;
+    }
+    return `${row.label} (${row.iana}): ${row.formatted} ${row.abbr} — ${row.difference}`;
+  });
+  const subjectEntries = rows.map((row) => ({ dateTime: row.dateTime, abbr: row.abbr }));
+  const rowsForRender = rows.map(({ dateTime, ...rest }) => rest);
 
   lastRenderedLines = linesForCopy;
   lastCopyText = getMode() === "pick"
     ? formatPickModeSubject(subjectEntries)
     : linesForCopy.join("\n");
-  renderResults(rows);
+  renderResults(rowsForRender);
   renderFavoriteButtonState();
 }
 
@@ -1196,6 +1203,22 @@ function formatSubjectTimeSegment(dateTime, abbr) {
 
 function getMinuteOfDay(dateTime) {
   return (dateTime.hour * 60) + dateTime.minute;
+}
+
+function compareRowsByLocalDateTime(a, b) {
+  const yearDiff = a.dateTime.year - b.dateTime.year;
+  if (yearDiff !== 0) return yearDiff;
+
+  const monthDiff = a.dateTime.month - b.dateTime.month;
+  if (monthDiff !== 0) return monthDiff;
+
+  const dayDiff = a.dateTime.day - b.dateTime.day;
+  if (dayDiff !== 0) return dayDiff;
+
+  const minuteDiff = getMinuteOfDay(a.dateTime) - getMinuteOfDay(b.dateTime);
+  if (minuteDiff !== 0) return minuteDiff;
+
+  return a.label.localeCompare(b.label);
 }
 
 function startTicker() {
