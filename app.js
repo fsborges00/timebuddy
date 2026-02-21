@@ -963,7 +963,7 @@ function refresh() {
   const etDateTime = instant.setZone(HOME_TZ);
   const rows = [];
   const linesForCopy = [];
-  const subjectTimeSegments = [];
+  const subjectEntries = [];
 
   // ET row first
   const etAbbr = getOffsetAbbreviation(etDateTime);
@@ -977,7 +977,7 @@ function refresh() {
     removable: false
   });
   linesForCopy.push(`${HOME_LABEL} (${HOME_TZ}): ${etFormatted} ${etAbbr}`);
-  subjectTimeSegments.push(formatSubjectTimeSegment(etDateTime, etAbbr));
+  subjectEntries.push({ dateTime: etDateTime, abbr: etAbbr });
 
   // Each comparison zone
   comparisonZones.forEach((entry) => {
@@ -995,12 +995,12 @@ function refresh() {
       source: entry.source || "Manual selection"
     });
     linesForCopy.push(`${entry.label} (${entry.tz}): ${formatted} ${abbr} — ${difference}`);
-    subjectTimeSegments.push(formatSubjectTimeSegment(zoned, abbr));
+    subjectEntries.push({ dateTime: zoned, abbr });
   });
 
   lastRenderedLines = linesForCopy;
   lastCopyText = getMode() === "pick"
-    ? formatPickModeSubject(instant, subjectTimeSegments)
+    ? formatPickModeSubject(subjectEntries)
     : linesForCopy.join("\n");
   renderResults(rows);
   renderFavoriteButtonState();
@@ -1148,17 +1148,34 @@ function updateCopyButtonLabel() {
   elements.copyAllBtn.textContent = getMode() === "pick" ? "Copy email subject" : "Copy all times";
 }
 
-function formatPickModeSubject(instant, segments) {
-  const inputTz = elements.inputTzSelect.value || HOME_TZ;
-  const dateInInputZone = instant.setZone(inputTz);
-  return `${formatLongDateWithOrdinal(dateInInputZone)} @ ${segments.join(" // ")}`;
+function formatPickModeSubject(entries) {
+  const byDate = new Map();
+
+  entries.forEach((entry) => {
+    const dateKey = entry.dateTime.toFormat("yyyy-LL-dd");
+    const group = byDate.get(dateKey) || [];
+    group.push(entry);
+    byDate.set(dateKey, group);
+  });
+
+  const orderedDates = Array.from(byDate.keys()).sort();
+  const dayGroups = orderedDates.map((dateKey) => {
+    const dayEntries = byDate.get(dateKey) || [];
+    dayEntries.sort((a, b) => getMinuteOfDay(a.dateTime) - getMinuteOfDay(b.dateTime));
+
+    const headerDate = dayEntries[0]?.dateTime;
+    const dateLabel = headerDate ? formatMonthDayWithOrdinal(headerDate) : "";
+    const segments = dayEntries.map((entry) => formatSubjectTimeSegment(entry.dateTime, entry.abbr));
+    return `${dateLabel} @ ${segments.join(" // ")}`;
+  });
+
+  return dayGroups.join(" /// ");
 }
 
-function formatLongDateWithOrdinal(dateTime) {
-  const weekday = dateTime.toFormat("cccc");
+function formatMonthDayWithOrdinal(dateTime) {
   const month = dateTime.toFormat("LLLL");
   const day = dateTime.day;
-  return `${weekday}, ${month} ${day}${getOrdinalSuffix(day)}`;
+  return `${month} ${day}${getOrdinalSuffix(day)}`;
 }
 
 function getOrdinalSuffix(day) {
@@ -1175,6 +1192,10 @@ function formatSubjectTimeSegment(dateTime, abbr) {
   const timePart = minute === "00" ? dateTime.toFormat("h") : dateTime.toFormat("h:mm");
   const meridiem = dateTime.toFormat("a").toUpperCase();
   return `${timePart}${meridiem} ${abbr}`;
+}
+
+function getMinuteOfDay(dateTime) {
+  return (dateTime.hour * 60) + dateTime.minute;
 }
 
 function startTicker() {
