@@ -435,13 +435,17 @@ function bindEvents() {
     renderLocationSuggestions(elements.locationInput.value.trim());
   });
 
-  elements.favoriteBtn.addEventListener("click", () => {
-    setFavoritesMenuOpen(!favoritesMenuOpen);
-  });
+  if (elements.favoriteBtn) {
+    elements.favoriteBtn.addEventListener("click", () => {
+      setFavoritesMenuOpen(!favoritesMenuOpen);
+    });
+  }
 
-  elements.advancedSettingsToggle.addEventListener("click", () => {
-    setAdvancedSettingsOpen(elements.advancedSettingsToggle.getAttribute("aria-expanded") !== "true");
-  });
+  if (elements.advancedSettingsToggle) {
+    elements.advancedSettingsToggle.addEventListener("click", () => {
+      setAdvancedSettingsOpen(elements.advancedSettingsToggle.getAttribute("aria-expanded") !== "true");
+    });
+  }
 
   document.querySelectorAll('input[name="mode"]').forEach((radio) => {
     radio.addEventListener("change", () => {
@@ -512,7 +516,7 @@ async function attemptAddFromInput(selectedOverride = null) {
     const value = inputValue;
     elements.copyFeedback.textContent = value
       ? `No timezone found for "${value}". Try a timezone code (e.g. IST), city, country, or IANA zone (e.g. Europe/London).`
-      : "Type a timezone code, city, country, or IANA timezone above, then click Add.";
+      : "Type a timezone code, city, country, or IANA timezone above, then press Enter.";
     return;
   }
 
@@ -859,7 +863,7 @@ function syncLocationInputWithFirst() {
     elements.copyFeedback.textContent = "";
   } else {
     elements.locationInput.value = "";
-    elements.copyFeedback.textContent = "Type a timezone code, city, country, or IANA timezone above, then click Add.";
+    elements.copyFeedback.textContent = "Type a timezone code, city, country, or IANA timezone above, then press Enter.";
   }
 }
 
@@ -909,7 +913,7 @@ function renderComparisonList() {
   if (comparisonZones.length === 0) {
     elements.comparisonList.classList.add("empty");
     elements.comparisonList.innerHTML = "";
-    elements.comparisonList.appendChild(document.createTextNode("No zones added. Use the selector above and \"+ Add\" to compare."));
+    elements.comparisonList.appendChild(document.createTextNode("No zones added. Use the selector above and press Enter to compare."));
     return;
   }
 
@@ -1336,12 +1340,14 @@ function renderFavorites() {
 }
 
 function setFavoritesMenuOpen(open) {
+  if (!elements.favoriteBtn || !elements.favoritesMenu) return;
   favoritesMenuOpen = Boolean(open);
   elements.favoriteBtn.setAttribute("aria-expanded", String(favoritesMenuOpen));
   elements.favoritesMenu.classList.toggle("hidden", !favoritesMenuOpen);
 }
 
 function setAdvancedSettingsOpen(open) {
+  if (!elements.advancedSettingsToggle || !elements.advancedSettingsContent) return;
   const isOpen = Boolean(open);
   elements.advancedSettingsToggle.setAttribute("aria-expanded", String(isOpen));
   elements.advancedSettingsContent.classList.toggle("hidden", !isOpen);
