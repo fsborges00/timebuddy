@@ -9,6 +9,8 @@ const MAX_TYPEAHEAD_OPTIONS = 8;
 const MAX_CITY_LOOKUP_CACHE_ENTRIES = 200;
 const CITY_LOOKUP_TIMEOUT_MS = 8000;
 const CITY_SUGGEST_DEBOUNCE_MS = 260;
+const BUSINESS_START_HOUR = 7;
+const BUSINESS_END_HOUR = 19;
 
 const LOCATIONS = [
   { label: "New York", tz: "America/New_York" },
@@ -333,6 +335,10 @@ function getLabelForZone(tz) {
 }
 
 const elements = {
+  tabConverter: document.getElementById("tabConverter"),
+  tabGoldenHours: document.getElementById("tabGoldenHours"),
+  converterView: document.getElementById("converterView"),
+  goldenHoursView: document.getElementById("goldenHoursView"),
   locationInput: document.getElementById("locationInput"),
   locationSuggestions: document.getElementById("locationSuggestions"),
   favoriteBtn: document.getElementById("favoriteBtn"),
@@ -349,7 +355,15 @@ const elements = {
   inputTzSelect: document.getElementById("inputTzSelect"),
   resultsList: document.getElementById("resultsList"),
   copyAllBtn: document.getElementById("copyAllBtn"),
-  copyFeedback: document.getElementById("copyFeedback")
+  copyFeedback: document.getElementById("copyFeedback"),
+  businessLocationInput: document.getElementById("businessLocationInput"),
+  businessLocationSuggestions: document.getElementById("businessLocationSuggestions"),
+  businessAddLocationBtn: document.getElementById("businessAddLocationBtn"),
+  businessDateInput: document.getElementById("businessDateInput"),
+  businessLocationList: document.getElementById("businessLocationList"),
+  businessSummary: document.getElementById("businessSummary"),
+  businessTimeline: document.getElementById("businessTimeline"),
+  businessWindows: document.getElementById("businessWindows")
 };
 
 let comparisonZones = loadComparisonList();
@@ -363,6 +377,12 @@ let activeSuggestionIndex = -1;
 let citySuggestTimer = null;
 let citySuggestSeq = 0;
 let favoritesMenuOpen = false;
+let activeView = "converter";
+let selectedBusinessLocations = [];
+let businessLocationSuggestions = [];
+let activeBusinessLocationSuggestionIndex = -1;
+let businessCitySuggestTimer = null;
+let businessCitySuggestSeq = 0;
 
 initialize();
 
@@ -371,6 +391,7 @@ function initialize() {
 
   const now = DateTime.now().setZone(HOME_TZ);
   elements.dateInput.value = now.toISODate();
+  elements.businessDateInput.value = now.toISODate();
   setTimePickerFromDateTime(now);
 
   bindEvents();
@@ -382,8 +403,10 @@ function initialize() {
   renderComparisonList();
   renderFavorites();
   populateInputTzSelect();
+  setActiveView("converter");
   updateCopyButtonLabel();
   refresh();
+  renderBusinessHours();
   if (liveMode) {
     startTicker();
   } else {
@@ -392,6 +415,14 @@ function initialize() {
 }
 
 function bindEvents() {
+  if (elements.tabConverter) {
+    elements.tabConverter.addEventListener("click", () => setActiveView("converter"));
+  }
+
+  if (elements.tabGoldenHours) {
+    elements.tabGoldenHours.addEventListener("click", () => setActiveView("golden-hours"));
+  }
+
   elements.locationInput.addEventListener("input", () => {
     renderLocationSuggestions(elements.locationInput.value.trim());
   });
@@ -467,6 +498,68 @@ function bindEvents() {
     if (el) el.addEventListener("input", refresh);
     if (el) el.addEventListener("change", refresh);
   });
+
+  if (elements.businessLocationInput) {
+    elements.businessLocationInput.addEventListener("input", () => {
+      renderBusinessLocationSuggestions(elements.businessLocationInput.value.trim());
+    });
+  }
+
+  if (elements.businessLocationInput) {
+    elements.businessLocationInput.addEventListener("keydown", (event) => {
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        moveBusinessLocationSuggestionSelection(1);
+        return;
+      }
+
+      if (event.key === "ArrowUp") {
+        event.preventDefault();
+        moveBusinessLocationSuggestionSelection(-1);
+        return;
+      }
+
+      if (event.key === "Enter") {
+        event.preventDefault();
+        const highlighted = getActiveBusinessLocationSuggestion();
+        if (highlighted) {
+          elements.businessLocationInput.value = formatSearchValue(highlighted);
+          clearBusinessLocationSuggestions();
+          attemptAddBusinessLocation(highlighted);
+          return;
+        }
+        attemptAddBusinessLocation();
+        return;
+      }
+
+      if (event.key === "Escape") {
+        clearBusinessLocationSuggestions();
+      }
+    });
+  }
+
+  if (elements.businessLocationInput) {
+    elements.businessLocationInput.addEventListener("blur", () => {
+      window.setTimeout(clearBusinessLocationSuggestions, 120);
+    });
+  }
+
+  if (elements.businessLocationInput) {
+    elements.businessLocationInput.addEventListener("focus", () => {
+      renderBusinessLocationSuggestions(elements.businessLocationInput.value.trim());
+    });
+  }
+
+  if (elements.businessAddLocationBtn) {
+    elements.businessAddLocationBtn.addEventListener("click", () => {
+      attemptAddBusinessLocation();
+    });
+  }
+
+  if (elements.businessDateInput) {
+    elements.businessDateInput.addEventListener("input", renderBusinessHours);
+    elements.businessDateInput.addEventListener("change", renderBusinessHours);
+  }
 
   elements.copyAllBtn.addEventListener("click", () => {
     const success = getMode() === "pick" ? "Email subject copied." : "All times copied.";
@@ -810,6 +903,15 @@ function clearLocationSuggestions() {
 function getSelectionFromInput(options = {}) {
   const { normalizeInput = false } = options;
   const value = elements.locationInput.value.trim();
+  const selected = getSelectionFromValue(value);
+  if (!selected) return null;
+  if (normalizeInput) {
+    elements.locationInput.value = formatSearchValue(selected);
+  }
+  return selected;
+}
+
+function getSelectionFromValue(value) {
   if (!value) return null;
 
   const searchable = getSearchableZones();
@@ -818,41 +920,21 @@ function getSelectionFromInput(options = {}) {
   if (exactFormat) return exactFormat;
 
   const byTz = searchable.find((entry) => entry.tz && entry.tz.toLowerCase() === value.toLowerCase());
-  if (byTz) {
-    if (normalizeInput) {
-      elements.locationInput.value = formatSearchValue(byTz);
-    }
-    return byTz;
-  }
+  if (byTz) return byTz;
 
   const byCode = getZoneEntryByCode(value);
-  if (byCode) {
-    if (normalizeInput) {
-      elements.locationInput.value = formatSearchValue(byCode);
-    }
-    return byCode;
-  }
+  if (byCode) return byCode;
 
   const valueLower = value.toLowerCase();
   const byLabelExact = searchable.find(
     (entry) => entry.label.toLowerCase() === valueLower
   );
-  if (byLabelExact) {
-    if (normalizeInput) {
-      elements.locationInput.value = formatSearchValue(byLabelExact);
-    }
-    return byLabelExact;
-  }
+  if (byLabelExact) return byLabelExact;
 
   const byLabelContains = searchable.find(
     (entry) => getSearchTokens(entry).includes(valueLower)
   );
-  if (byLabelContains) {
-    if (normalizeInput) {
-      elements.locationInput.value = formatSearchValue(byLabelContains);
-    }
-    return byLabelContains;
-  }
+  if (byLabelContains) return byLabelContains;
 
   return null;
 }
@@ -1351,6 +1433,392 @@ function setAdvancedSettingsOpen(open) {
   const isOpen = Boolean(open);
   elements.advancedSettingsToggle.setAttribute("aria-expanded", String(isOpen));
   elements.advancedSettingsContent.classList.toggle("hidden", !isOpen);
+}
+
+function setActiveView(view) {
+  activeView = view === "golden-hours" ? "golden-hours" : "converter";
+  const isConverter = activeView === "converter";
+  if (elements.converterView) elements.converterView.classList.toggle("hidden", !isConverter);
+  if (elements.goldenHoursView) elements.goldenHoursView.classList.toggle("hidden", isConverter);
+  if (elements.tabConverter) {
+    elements.tabConverter.classList.toggle("active", isConverter);
+    elements.tabConverter.setAttribute("aria-pressed", String(isConverter));
+  }
+  if (elements.tabGoldenHours) {
+    elements.tabGoldenHours.classList.toggle("active", !isConverter);
+    elements.tabGoldenHours.setAttribute("aria-pressed", String(!isConverter));
+  }
+}
+
+async function attemptAddBusinessLocation(selectedOverride = null) {
+  clearBusinessLocationSuggestions();
+  if (!elements.businessLocationInput) return;
+  const inputValue = elements.businessLocationInput.value.trim();
+  let selected = selectedOverride || getSelectionFromValue(inputValue);
+
+  if (!selected && inputValue) {
+    elements.businessSummary.textContent = `Searching "${inputValue}"...`;
+    const remote = await lookupCityByName(inputValue);
+    if (remote?.entry) {
+      selected = remote.entry;
+      elements.businessLocationInput.value = formatLocationValue(remote.entry);
+    } else if (remote?.suggestions?.length) {
+      showBusinessLocationSuggestions(remote.suggestions);
+      elements.businessSummary.textContent = remote.error || "Multiple matches found. Pick one from the list.";
+      return;
+    } else {
+      elements.businessSummary.textContent = remote?.error || `No timezone found for "${inputValue}".`;
+      return;
+    }
+  }
+
+  if (!selected) {
+    elements.businessSummary.textContent = inputValue
+      ? `No timezone found for "${inputValue}". Try a city, timezone code, country, or IANA timezone.`
+      : "Type a city or timezone above, then press Enter.";
+    return;
+  }
+
+  const entry = resolveBusinessLocationEntry(selected);
+  if (!entry) {
+    elements.businessSummary.textContent = "That country has multiple timezones. Pick a city or specific timezone.";
+    return;
+  }
+
+  const status = addBusinessLocation(entry);
+  if (status === "added") {
+    elements.businessLocationInput.value = "";
+    renderBusinessHours();
+    return;
+  }
+  if (status === "duplicate") {
+    elements.businessSummary.textContent = `${entry.label} is already selected.`;
+    return;
+  }
+  elements.businessSummary.textContent = "Could not determine a valid timezone from that value.";
+}
+
+function resolveBusinessLocationEntry(selected) {
+  if (!selected) return null;
+  if (selected.kind === "country-multi") return null;
+  if (selected.kind === "country-single") {
+    return {
+      label: selected.label,
+      tz: selected.tz,
+      source: "Country selection"
+    };
+  }
+  return {
+    label: selected.label || getLabelForZone(selected.tz),
+    tz: selected.tz,
+    source: selected.source || "Manual selection"
+  };
+}
+
+function addBusinessLocation(entry) {
+  if (!entry || !entry.tz || !isValidZone(entry.tz)) return "invalid";
+  if (selectedBusinessLocations.some((item) => item.tz === entry.tz)) return "duplicate";
+  selectedBusinessLocations.push({
+    label: entry.label || getLabelForZone(entry.tz),
+    tz: entry.tz,
+    source: entry.source || "Manual selection"
+  });
+  return "added";
+}
+
+function removeBusinessLocation(tz) {
+  selectedBusinessLocations = selectedBusinessLocations.filter((entry) => entry.tz !== tz);
+  renderBusinessHours();
+}
+
+function renderBusinessLocationList() {
+  if (!elements.businessLocationList) return;
+  if (!selectedBusinessLocations.length) {
+    elements.businessLocationList.classList.add("empty");
+    elements.businessLocationList.innerHTML = "";
+    elements.businessLocationList.appendChild(document.createTextNode("Select at least two locations."));
+    return;
+  }
+
+  elements.businessLocationList.classList.remove("empty");
+  elements.businessLocationList.innerHTML = "";
+  selectedBusinessLocations.forEach((entry) => {
+    const chip = document.createElement("div");
+    chip.className = "business-location-chip";
+
+    const text = document.createElement("span");
+    text.textContent = entry.label;
+    chip.appendChild(text);
+
+    const note = document.createElement("small");
+    note.textContent = entry.tz;
+    chip.appendChild(note);
+
+    const removeBtn = document.createElement("button");
+    removeBtn.type = "button";
+    removeBtn.className = "remove-btn";
+    removeBtn.setAttribute("aria-label", `Remove ${entry.label}`);
+    removeBtn.textContent = "×";
+    removeBtn.addEventListener("click", () => removeBusinessLocation(entry.tz));
+    chip.appendChild(removeBtn);
+
+    elements.businessLocationList.appendChild(chip);
+  });
+}
+
+function renderBusinessLocationSuggestions(query) {
+  if (businessCitySuggestTimer) {
+    clearTimeout(businessCitySuggestTimer);
+    businessCitySuggestTimer = null;
+  }
+
+  if (!query) {
+    clearBusinessLocationSuggestions();
+    return;
+  }
+
+  const localMatches = getMatchingSearchEntries(query);
+  if (localMatches.length > 0) {
+    businessLocationSuggestions = localMatches;
+    activeBusinessLocationSuggestionIndex = 0;
+    drawBusinessLocationSuggestions();
+    return;
+  }
+
+  if (query.length < 2) {
+    clearBusinessLocationSuggestions();
+    return;
+  }
+
+  const currentSeq = ++businessCitySuggestSeq;
+  businessCitySuggestTimer = setTimeout(async () => {
+    try {
+      const remoteResults = await fetchCityLookupResults(query, MAX_TYPEAHEAD_OPTIONS);
+      if (currentSeq !== businessCitySuggestSeq) return;
+      if (!elements.businessLocationInput) return;
+      const currentInput = elements.businessLocationInput.value.trim().toLowerCase();
+      if (currentInput !== query.toLowerCase()) return;
+
+      businessLocationSuggestions = remoteResults
+        .filter((item) => item?.timezone && isValidZone(item.timezone))
+        .map((item) => mapLookupResultToEntry(item))
+        .slice(0, MAX_TYPEAHEAD_OPTIONS);
+
+      activeBusinessLocationSuggestionIndex = businessLocationSuggestions.length ? 0 : -1;
+      drawBusinessLocationSuggestions();
+    } catch (_) {
+      if (currentSeq !== businessCitySuggestSeq) return;
+      clearBusinessLocationSuggestions();
+    }
+  }, CITY_SUGGEST_DEBOUNCE_MS);
+}
+
+function showBusinessLocationSuggestions(entries) {
+  businessLocationSuggestions = entries.slice(0, MAX_TYPEAHEAD_OPTIONS);
+  activeBusinessLocationSuggestionIndex = businessLocationSuggestions.length ? 0 : -1;
+  drawBusinessLocationSuggestions();
+}
+
+function drawBusinessLocationSuggestions() {
+  const container = elements.businessLocationSuggestions;
+  if (!container) return;
+
+  container.innerHTML = "";
+  if (!businessLocationSuggestions.length) {
+    container.classList.add("hidden");
+    return;
+  }
+
+  container.classList.remove("hidden");
+  businessLocationSuggestions.forEach((entry, index) => {
+    const option = document.createElement("button");
+    option.type = "button";
+    option.className = "typeahead-option";
+    if (index === activeBusinessLocationSuggestionIndex) option.classList.add("active");
+    option.textContent = formatSearchValue(entry);
+    option.addEventListener("mousedown", (event) => event.preventDefault());
+    option.addEventListener("click", () => {
+      if (elements.businessLocationInput) {
+        elements.businessLocationInput.value = formatSearchValue(entry);
+      }
+      attemptAddBusinessLocation(entry);
+      elements.businessLocationInput?.focus();
+    });
+    container.appendChild(option);
+  });
+}
+
+function moveBusinessLocationSuggestionSelection(direction) {
+  if (!businessLocationSuggestions.length || !elements.businessLocationInput) return;
+  activeBusinessLocationSuggestionIndex = (activeBusinessLocationSuggestionIndex + direction + businessLocationSuggestions.length) % businessLocationSuggestions.length;
+  const selected = getActiveBusinessLocationSuggestion();
+  if (selected) {
+    elements.businessLocationInput.value = formatSearchValue(selected);
+  }
+  drawBusinessLocationSuggestions();
+}
+
+function getActiveBusinessLocationSuggestion() {
+  if (activeBusinessLocationSuggestionIndex < 0 || activeBusinessLocationSuggestionIndex >= businessLocationSuggestions.length) return null;
+  return businessLocationSuggestions[activeBusinessLocationSuggestionIndex];
+}
+
+function clearBusinessLocationSuggestions() {
+  if (businessCitySuggestTimer) {
+    clearTimeout(businessCitySuggestTimer);
+    businessCitySuggestTimer = null;
+  }
+  businessCitySuggestSeq += 1;
+  businessLocationSuggestions = [];
+  activeBusinessLocationSuggestionIndex = -1;
+  const container = elements.businessLocationSuggestions;
+  if (!container) return;
+  container.innerHTML = "";
+  container.classList.add("hidden");
+}
+
+function renderBusinessHours() {
+  renderBusinessLocationList();
+  if (!elements.businessSummary || !elements.businessTimeline || !elements.businessWindows) return;
+
+  const locations = selectedBusinessLocations.slice();
+  if (locations.length < 2) {
+    elements.businessSummary.textContent = "Add at least two locations to see overlap.";
+    elements.businessTimeline.innerHTML = "";
+    elements.businessWindows.innerHTML = "";
+    return;
+  }
+
+  const dateValue = elements.businessDateInput?.value;
+  const baseDate = dateValue
+    ? DateTime.fromISO(`${dateValue}T00:00`, { zone: HOME_TZ })
+    : DateTime.now().setZone(HOME_TZ).startOf("day");
+
+  const slots = [];
+  for (let hour = 0; hour < 24; hour += 1) {
+    const etHourStart = baseDate.plus({ hours: hour });
+    const openCount = locations.reduce((count, location) => {
+      const localStart = etHourStart.setZone(location.tz);
+      const localEnd = etHourStart.plus({ hours: 1 }).setZone(location.tz);
+      const inBusinessHours = isFullSlotInsideBusinessHours(localStart, localEnd);
+      return count + (inBusinessHours ? 1 : 0);
+    }, 0);
+    slots.push({ etHourStart, openCount, total: locations.length });
+  }
+
+  drawBusinessTimeline(slots, locations);
+  drawBusinessWindows(slots, locations);
+
+  const fullHours = slots.filter((slot) => slot.openCount === slot.total).length;
+  if (fullHours > 0) {
+    elements.businessSummary.textContent = `${fullHours} fully overlapping hour(s) found on ${baseDate.toFormat("LLL d, yyyy")} (ET view).`;
+    return;
+  }
+
+  const best = Math.max(...slots.map((slot) => slot.openCount));
+  elements.businessSummary.textContent = `No full overlap found. Best availability is ${best}/${locations.length} locations at once.`;
+}
+
+function drawBusinessTimeline(slots, locations) {
+  elements.businessTimeline.innerHTML = "";
+  slots.forEach((slot) => {
+    const cell = document.createElement("div");
+    cell.className = "timeline-hour";
+    if (slot.openCount === 0) {
+      cell.classList.add("level-none");
+    } else if (slot.openCount === slot.total) {
+      cell.classList.add("level-full");
+    } else {
+      cell.classList.add("level-partial");
+    }
+
+    const etLine = document.createElement("div");
+    etLine.className = "hour-line et-line";
+    etLine.textContent = `ET: ${formatHourRange(slot.etHourStart, slot.etHourStart.plus({ hours: 1 }))}`;
+    cell.appendChild(etLine);
+
+    locations.forEach((location) => {
+      const start = slot.etHourStart.setZone(location.tz);
+      const end = slot.etHourStart.plus({ hours: 1 }).setZone(location.tz);
+      const localLine = document.createElement("div");
+      localLine.className = "hour-line";
+      localLine.textContent = `${getTimelineLabel(location.label)}: ${formatHourRange(start, end)}`;
+      cell.appendChild(localLine);
+    });
+
+    elements.businessTimeline.appendChild(cell);
+  });
+}
+
+function drawBusinessWindows(slots, locations) {
+  elements.businessWindows.innerHTML = "";
+  const windows = getFullOverlapWindows(slots);
+  if (!windows.length) return;
+
+  windows.forEach((window) => {
+    const card = document.createElement("div");
+    card.className = "business-window-card";
+
+    const title = document.createElement("div");
+    title.className = "business-window-title";
+    title.textContent = `${formatTimeRange(window.start, window.end)} ET`;
+    card.appendChild(title);
+
+    const locals = document.createElement("div");
+    locals.className = "business-window-locals";
+    locals.textContent = locations
+      .map((location) => `${location.label}: ${formatTimeRange(window.start.setZone(location.tz), window.end.setZone(location.tz))}`)
+      .join(" • ");
+    card.appendChild(locals);
+    elements.businessWindows.appendChild(card);
+  });
+}
+
+function getFullOverlapWindows(slots) {
+  const windows = [];
+  let start = null;
+  slots.forEach((slot) => {
+    const isFull = slot.openCount === slot.total;
+    if (isFull && !start) {
+      start = slot.etHourStart;
+    }
+    if (!isFull && start) {
+      windows.push({ start, end: slot.etHourStart });
+      start = null;
+    }
+  });
+
+  if (start && slots.length) {
+    const last = slots[slots.length - 1];
+    windows.push({ start, end: last.etHourStart.plus({ hours: 1 }) });
+  }
+  return windows;
+}
+
+function formatTimeRange(start, end) {
+  return `${start.toFormat("h:mm a")} - ${end.toFormat("h:mm a")}`;
+}
+
+function isFullSlotInsideBusinessHours(localStart, localEnd) {
+  if (!localStart || !localEnd) return false;
+  if (localStart.weekday > 5 || localEnd.weekday > 5) return false;
+  if (!localStart.hasSame(localEnd, "day")) return false;
+
+  const startMinutes = (localStart.hour * 60) + localStart.minute;
+  const endMinutes = (localEnd.hour * 60) + localEnd.minute;
+  const minStart = BUSINESS_START_HOUR * 60;
+  const maxEnd = BUSINESS_END_HOUR * 60;
+
+  return startMinutes >= minStart && endMinutes <= maxEnd;
+}
+
+function formatHourRange(start, end) {
+  return `${start.toFormat("ha")} - ${end.toFormat("ha")}`;
+}
+
+function getTimelineLabel(label) {
+  if (!label) return "";
+  return label.split(",")[0].trim();
 }
 
 function toggleFavorite(tz) {

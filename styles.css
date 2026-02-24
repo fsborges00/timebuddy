@@ -67,6 +67,33 @@ body {
   margin-top: 1.35rem;
 }
 
+.app-view {
+  display: block;
+}
+
+.view-tabs {
+  display: inline-flex;
+  gap: 0.4rem;
+  margin: 0.2rem 0 0.2rem;
+  padding: 0.25rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent-soft) 30%, white);
+}
+
+.tab-btn {
+  border-radius: 999px;
+  border-color: transparent;
+  padding: 0.5rem 0.9rem;
+  font-size: 0.9rem;
+}
+
+.tab-btn.active {
+  color: #fff;
+  background: var(--accent);
+  border-color: var(--accent-deep);
+}
+
 .field-row {
   display: grid;
   gap: 0.44rem;
@@ -555,6 +582,131 @@ fieldset {
   gap: 0.5rem;
 }
 
+#goldenHoursView {
+  margin-top: 1.3rem;
+}
+
+.golden-hours-intro {
+  margin-top: 0;
+  color: var(--muted);
+}
+
+.golden-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.golden-location-add-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.55rem;
+}
+
+.business-location-list {
+  margin-top: 0.9rem;
+  display: flex;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.business-location-list.empty {
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.business-location-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.4rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-bright);
+  font-size: 0.9rem;
+}
+
+.business-location-chip small {
+  color: var(--muted);
+}
+
+.business-summary {
+  margin-top: 0.8rem;
+  color: var(--muted);
+}
+
+.business-timeline {
+  margin-top: 0.55rem;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(170px, 1fr);
+  gap: 0.35rem;
+  overflow-x: auto;
+  padding-bottom: 0.2rem;
+}
+
+.timeline-hour {
+  min-height: 120px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--accent-soft) 14%, white);
+  padding: 0.38rem 0.42rem;
+  display: grid;
+  align-content: start;
+  gap: 0.2rem;
+}
+
+.timeline-hour .hour-line {
+  font-size: 0.74rem;
+  color: var(--muted);
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.timeline-hour .hour-line.et-line {
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 0.12rem;
+}
+
+.timeline-hour.level-none {
+  background: color-mix(in srgb, #f07f7f 26%, white);
+  border-color: color-mix(in srgb, #bc3f3f 50%, white);
+}
+
+.timeline-hour.level-partial {
+  background: color-mix(in srgb, #f6d36b 25%, white);
+  border-color: color-mix(in srgb, #d3aa34 45%, white);
+}
+
+.timeline-hour.level-full {
+  background: color-mix(in srgb, #69c8a4 34%, white);
+  border-color: color-mix(in srgb, #2e956f 50%, white);
+}
+
+.business-windows {
+  margin-top: 0.65rem;
+  display: grid;
+  gap: 0.42rem;
+}
+
+.business-window-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.5rem 0.62rem;
+  background: var(--bg-bright);
+}
+
+.business-window-title {
+  font-weight: 600;
+}
+
+.business-window-locals {
+  margin-top: 0.2rem;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
 .result-card p {
   margin: 0;
 }
@@ -622,6 +774,14 @@ button:active {
 
   .field-grid {
     grid-template-columns: 1fr;
+  }
+
+  .golden-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .business-timeline {
+    grid-auto-columns: minmax(150px, 1fr);
   }
 
   .mode-toggle,
