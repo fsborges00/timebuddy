@@ -684,6 +684,19 @@ fieldset {
   border-color: color-mix(in srgb, #2e956f 50%, white);
 }
 
+.timeline-hour.is-selectable {
+  cursor: pointer;
+}
+
+.timeline-hour.is-selectable:hover,
+.timeline-hour.is-selectable:focus-visible {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-deep) 65%, white);
+}
+
+.timeline-hour.is-selected {
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent-deep) 85%, white);
+}
+
 .business-windows {
   margin-top: 0.65rem;
   display: grid;
@@ -705,6 +718,29 @@ fieldset {
   margin-top: 0.2rem;
   color: var(--muted);
   font-size: 0.88rem;
+}
+
+.business-subject-card {
+  margin-top: 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-bright);
+  padding: 0.7rem 0.76rem;
+}
+
+.business-subject-card h3 {
+  margin: 0;
+  font-size: 0.88rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+.business-subject-preview {
+  margin-top: 0.35rem;
+  font-size: 0.95rem;
+  line-height: 1.4;
+  word-break: break-word;
 }
 
 .result-card p {

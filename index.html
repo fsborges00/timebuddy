@@ -120,6 +120,14 @@
       <p id="businessSummary" class="business-summary">No overlap yet.</p>
       <div id="businessTimeline" class="business-timeline" aria-label="Business overlap timeline"></div>
       <div id="businessWindows" class="business-windows"></div>
+      <section id="businessSubjectCard" class="business-subject-card hidden" aria-live="polite" aria-atomic="true">
+        <h3>Email Subject Preview</h3>
+        <p id="businessSubjectPreview" class="business-subject-preview">Select a fully overlapping time box to preview.</p>
+        <div class="copy-actions">
+          <button id="businessCopySubjectBtn" type="button">Copy subject</button>
+        </div>
+        <p id="businessCopyFeedback" class="copy-feedback" role="status"></p>
+      </section>
     </section>
   </main>
 </body>

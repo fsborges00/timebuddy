@@ -363,7 +363,11 @@ const elements = {
   businessLocationList: document.getElementById("businessLocationList"),
   businessSummary: document.getElementById("businessSummary"),
   businessTimeline: document.getElementById("businessTimeline"),
-  businessWindows: document.getElementById("businessWindows")
+  businessWindows: document.getElementById("businessWindows"),
+  businessSubjectCard: document.getElementById("businessSubjectCard"),
+  businessSubjectPreview: document.getElementById("businessSubjectPreview"),
+  businessCopySubjectBtn: document.getElementById("businessCopySubjectBtn"),
+  businessCopyFeedback: document.getElementById("businessCopyFeedback")
 };
 
 let comparisonZones = loadComparisonList();
@@ -383,6 +387,8 @@ let businessLocationSuggestions = [];
 let activeBusinessLocationSuggestionIndex = -1;
 let businessCitySuggestTimer = null;
 let businessCitySuggestSeq = 0;
+let selectedBusinessSlotISO = "";
+let selectedBusinessSubject = "";
 
 initialize();
 
@@ -559,6 +565,10 @@ function bindEvents() {
   if (elements.businessDateInput) {
     elements.businessDateInput.addEventListener("input", renderBusinessHours);
     elements.businessDateInput.addEventListener("change", renderBusinessHours);
+  }
+
+  if (elements.businessCopySubjectBtn) {
+    elements.businessCopySubjectBtn.addEventListener("click", copyBusinessSubject);
   }
 
   elements.copyAllBtn.addEventListener("click", () => {
@@ -1686,6 +1696,7 @@ function renderBusinessHours() {
     elements.businessSummary.textContent = "Add at least two locations to see overlap.";
     elements.businessTimeline.innerHTML = "";
     elements.businessWindows.innerHTML = "";
+    clearBusinessSubjectPreview();
     return;
   }
 
@@ -1708,6 +1719,7 @@ function renderBusinessHours() {
 
   drawBusinessTimeline(slots, locations);
   drawBusinessWindows(slots, locations);
+  renderBusinessSubjectPreview(slots, locations);
 
   const fullHours = slots.filter((slot) => slot.openCount === slot.total).length;
   if (fullHours > 0) {
@@ -1728,6 +1740,16 @@ function drawBusinessTimeline(slots, locations) {
       cell.classList.add("level-none");
     } else if (slot.openCount === slot.total) {
       cell.classList.add("level-full");
+      cell.classList.add("is-selectable");
+      const slotISO = slot.etHourStart.toISO();
+      if (slotISO === selectedBusinessSlotISO) {
+        cell.classList.add("is-selected");
+      }
+      cell.addEventListener("click", () => {
+        selectedBusinessSlotISO = slotISO || "";
+        renderBusinessSubjectPreview(slots, locations);
+        drawBusinessTimeline(slots, locations);
+      });
     } else {
       cell.classList.add("level-partial");
     }
@@ -1772,6 +1794,77 @@ function drawBusinessWindows(slots, locations) {
     card.appendChild(locals);
     elements.businessWindows.appendChild(card);
   });
+}
+
+function renderBusinessSubjectPreview(slots, locations) {
+  if (!elements.businessSubjectCard || !elements.businessSubjectPreview || !elements.businessCopyFeedback || !elements.businessCopySubjectBtn) return;
+
+  const fullSlots = slots.filter((slot) => slot.openCount === slot.total);
+  if (!fullSlots.length) {
+    clearBusinessSubjectPreview();
+    return;
+  }
+
+  elements.businessSubjectCard.classList.remove("hidden");
+  const selectedSlot = fullSlots.find((slot) => slot.etHourStart.toISO() === selectedBusinessSlotISO) || null;
+  if (!selectedSlot) {
+    selectedBusinessSlotISO = "";
+    selectedBusinessSubject = "";
+    elements.businessSubjectPreview.textContent = "Select a fully overlapping time box above to generate an email subject preview.";
+    elements.businessCopyFeedback.textContent = "";
+    elements.businessCopySubjectBtn.disabled = true;
+    return;
+  }
+
+  selectedBusinessSlotISO = selectedSlot.etHourStart.toISO() || "";
+  selectedBusinessSubject = buildBusinessSubjectForSlot(selectedSlot, locations);
+  elements.businessSubjectPreview.textContent = selectedBusinessSubject;
+  elements.businessCopyFeedback.textContent = "";
+  elements.businessCopySubjectBtn.disabled = false;
+}
+
+function buildBusinessSubjectForSlot(slot, locations) {
+  const entries = [];
+  const etDateTime = slot.etHourStart.setZone(HOME_TZ);
+  entries.push({
+    dateTime: etDateTime,
+    abbr: getOffsetAbbreviation(etDateTime)
+  });
+
+  locations.forEach((location) => {
+    const dateTime = slot.etHourStart.setZone(location.tz);
+    entries.push({
+      dateTime,
+      abbr: getOffsetAbbreviation(dateTime)
+    });
+  });
+
+  return formatPickModeSubject(entries);
+}
+
+function clearBusinessSubjectPreview() {
+  selectedBusinessSlotISO = "";
+  selectedBusinessSubject = "";
+  if (elements.businessSubjectCard) elements.businessSubjectCard.classList.add("hidden");
+  if (elements.businessSubjectPreview) {
+    elements.businessSubjectPreview.textContent = "Select a fully overlapping time box to preview.";
+  }
+  if (elements.businessCopyFeedback) elements.businessCopyFeedback.textContent = "";
+  if (elements.businessCopySubjectBtn) elements.businessCopySubjectBtn.disabled = true;
+}
+
+async function copyBusinessSubject() {
+  if (!elements.businessCopyFeedback) return;
+  if (!selectedBusinessSubject) {
+    elements.businessCopyFeedback.textContent = "No subject to copy yet.";
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(selectedBusinessSubject);
+    elements.businessCopyFeedback.textContent = "Email subject copied.";
+  } catch {
+    elements.businessCopyFeedback.textContent = "Copy failed. Your browser may block clipboard access.";
+  }
 }
 
 function getFullOverlapWindows(slots) {
