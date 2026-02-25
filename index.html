@@ -20,7 +20,7 @@
 
     <nav class="view-tabs" aria-label="Feature tabs">
       <button id="tabConverter" class="tab-btn active" type="button" data-view="converter" aria-pressed="true">Time Converter</button>
-      <button id="tabGoldenHours" class="tab-btn" type="button" data-view="golden-hours" aria-pressed="false">Golden Hours</button>
+      <button id="tabGoldenHours" class="tab-btn" type="button" data-view="golden-hours" aria-pressed="false">Business Hours Overlap</button>
     </nav>
 
     <div id="converterView" class="app-view">
@@ -45,11 +45,11 @@
           <div id="comparisonList" class="comparison-list empty">No zones added. Use the selector above and press Enter to compare.</div>
         </section>
 
-        <fieldset class="mode-toggle">
-          <legend>Mode</legend>
-          <label><input type="radio" name="mode" value="now" /> Live</label>
-          <label><input type="radio" name="mode" value="pick" checked /> Custom</label>
-        </fieldset>
+      <fieldset class="mode-toggle">
+        <legend>Mode</legend>
+        <label><input type="radio" name="mode" value="pick" checked /> Custom</label>
+        <label><input type="radio" name="mode" value="now" /> Live</label>
+      </fieldset>
 
         <div id="customTimeSection" class="custom-time hidden" aria-hidden="true">
           <div class="field-grid">
@@ -97,15 +97,15 @@
       </section>
     </div>
 
-    <section id="goldenHoursView" class="panel app-view hidden" aria-label="Golden business-hour overlap">
-      <h2>Golden Hours</h2>
-      <p class="golden-hours-intro">Pick two or more cities/timezones to find the best overlap for standard business hours (7:00 AM to 7:00 PM local time).</p>
+    <section id="goldenHoursView" class="panel app-view hidden" aria-label="Business hours overlap">
+      <h2>Business Hours Overlap</h2>
+      <p class="golden-hours-intro">Find shared 7AM-7PM windows across locations.</p>
 
       <div class="golden-controls">
         <div class="field-row">
-          <label for="businessLocationInput">Add city / timezone</label>
+          <label for="businessLocationInput">Add location</label>
           <div class="golden-location-add-row">
-            <input id="businessLocationInput" placeholder="Type city, timezone code, country, or IANA timezone" autocomplete="off" />
+            <input id="businessLocationInput" type="text" placeholder="City, code, country, or timezone" autocomplete="off" />
             <button id="businessAddLocationBtn" type="button">Add</button>
           </div>
           <div id="businessLocationSuggestions" class="typeahead-list hidden" role="listbox" aria-label="Business location suggestions"></div>
@@ -116,13 +116,13 @@
         </div>
       </div>
 
-      <div id="businessLocationList" class="business-location-list empty">Select at least two locations.</div>
-      <p id="businessSummary" class="business-summary">No overlap yet.</p>
+      <div id="businessLocationList" class="business-location-list empty"></div>
+      <p id="businessSummary" class="business-summary">Add 2+ locations to see results.</p>
       <div id="businessTimeline" class="business-timeline" aria-label="Business overlap timeline"></div>
       <div id="businessWindows" class="business-windows"></div>
       <section id="businessSubjectCard" class="business-subject-card hidden" aria-live="polite" aria-atomic="true">
-        <h3>Email Subject Preview</h3>
-        <p id="businessSubjectPreview" class="business-subject-preview">Select a fully overlapping time box to preview.</p>
+        <h3>Subject Preview</h3>
+        <p id="businessSubjectPreview" class="business-subject-preview">Pick a green slot to preview.</p>
         <div class="copy-actions">
           <button id="businessCopySubjectBtn" type="button">Copy subject</button>
         </div>

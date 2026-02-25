@@ -1546,7 +1546,6 @@ function renderBusinessLocationList() {
   if (!selectedBusinessLocations.length) {
     elements.businessLocationList.classList.add("empty");
     elements.businessLocationList.innerHTML = "";
-    elements.businessLocationList.appendChild(document.createTextNode("Select at least two locations."));
     return;
   }
 
@@ -1693,7 +1692,7 @@ function renderBusinessHours() {
 
   const locations = selectedBusinessLocations.slice();
   if (locations.length < 2) {
-    elements.businessSummary.textContent = "Add at least two locations to see overlap.";
+    elements.businessSummary.textContent = "Add 2+ locations to see results.";
     elements.businessTimeline.innerHTML = "";
     elements.businessWindows.innerHTML = "";
     clearBusinessSubjectPreview();
@@ -1723,12 +1722,12 @@ function renderBusinessHours() {
 
   const fullHours = slots.filter((slot) => slot.openCount === slot.total).length;
   if (fullHours > 0) {
-    elements.businessSummary.textContent = `${fullHours} fully overlapping hour(s) found on ${baseDate.toFormat("LLL d, yyyy")} (ET view).`;
+    elements.businessSummary.textContent = `${fullHours} overlap hour(s) · ${baseDate.toFormat("LLL d, yyyy")} ET`;
     return;
   }
 
   const best = Math.max(...slots.map((slot) => slot.openCount));
-  elements.businessSummary.textContent = `No full overlap found. Best availability is ${best}/${locations.length} locations at once.`;
+  elements.businessSummary.textContent = `No full overlap · Best ${best}/${locations.length} open`;
 }
 
 function drawBusinessTimeline(slots, locations) {
@@ -1810,7 +1809,7 @@ function renderBusinessSubjectPreview(slots, locations) {
   if (!selectedSlot) {
     selectedBusinessSlotISO = "";
     selectedBusinessSubject = "";
-    elements.businessSubjectPreview.textContent = "Select a fully overlapping time box above to generate an email subject preview.";
+    elements.businessSubjectPreview.textContent = "Pick a green slot to preview.";
     elements.businessCopyFeedback.textContent = "";
     elements.businessCopySubjectBtn.disabled = true;
     return;
@@ -1847,7 +1846,7 @@ function clearBusinessSubjectPreview() {
   selectedBusinessSubject = "";
   if (elements.businessSubjectCard) elements.businessSubjectCard.classList.add("hidden");
   if (elements.businessSubjectPreview) {
-    elements.businessSubjectPreview.textContent = "Select a fully overlapping time box to preview.";
+    elements.businessSubjectPreview.textContent = "Pick a green slot to preview.";
   }
   if (elements.businessCopyFeedback) elements.businessCopyFeedback.textContent = "";
   if (elements.businessCopySubjectBtn) elements.businessCopySubjectBtn.disabled = true;
