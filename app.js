@@ -339,6 +339,7 @@ function getLabelForZone(tz) {
 }
 
 const elements = {
+  appTitle: document.getElementById("appTitle"),
   tabConverter: document.getElementById("tabConverter"),
   tabGoldenHours: document.getElementById("tabGoldenHours"),
   converterView: document.getElementById("converterView"),
@@ -362,8 +363,6 @@ const elements = {
   timeMeridiemSelect: document.getElementById("timeMeridiemSelect"),
   inputTzSelect: document.getElementById("inputTzSelect"),
   resultsList: document.getElementById("resultsList"),
-  copyAllBtn: document.getElementById("copyAllBtn"),
-  copyPreviewToggleBtn: document.getElementById("copyPreviewToggleBtn"),
   copyPreviewBox: document.getElementById("copyPreviewBox"),
   copyPreviewText: document.getElementById("copyPreviewText"),
   copyAllTooltip: document.getElementById("copyAllTooltip"),
@@ -428,7 +427,6 @@ function initialize() {
   renderFavorites();
   populateInputTzSelect();
   setActiveView("converter");
-  updateCopyButtonLabel();
   refresh();
   renderBusinessHours();
   if (liveMode) {
@@ -474,6 +472,12 @@ function syncBaseTimezoneUI() {
   }
   if (elements.baseZoneIanaText) {
     elements.baseZoneIanaText.textContent = base.tz;
+  }
+  if (elements.appTitle) {
+    elements.appTitle.innerHTML = `<i data-lucide="globe" class="app-logo"></i> ${base.label} Time Buddy`;
+    if (window.lucide) {
+      lucide.createIcons();
+    }
   }
   document.title = `${base.label} Time Buddy`;
 }
@@ -579,7 +583,6 @@ function bindEvents() {
       } else {
         stopTicker();
       }
-      updateCopyButtonLabel();
       populateInputTzSelect();
       refresh();
     });
@@ -656,18 +659,15 @@ function bindEvents() {
     elements.businessCopySubjectBtn.addEventListener("click", copyBusinessSubject);
   }
 
-  elements.copyAllBtn.addEventListener("click", () => {
+  elements.copyPreviewBox.addEventListener("click", () => {
     copyWithBubbleConfirmation(lastCopyText, elements.copyAllTooltip);
   });
-
-  if (elements.copyPreviewToggleBtn) {
-    elements.copyPreviewToggleBtn.addEventListener("click", () => {
-      const isExpanded = elements.copyPreviewToggleBtn.getAttribute("aria-expanded") === "true";
-      elements.copyPreviewToggleBtn.setAttribute("aria-expanded", String(!isExpanded));
-      elements.copyPreviewBox.classList.toggle("hidden", isExpanded);
-      elements.copyPreviewBox.setAttribute("aria-hidden", String(isExpanded));
-    });
-  }
+  elements.copyPreviewBox.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      copyWithBubbleConfirmation(lastCopyText, elements.copyAllTooltip);
+    }
+  });
 
   if (elements.doubleCheckBtn) {
     elements.doubleCheckBtn.addEventListener("click", () => {
@@ -1129,7 +1129,7 @@ function renderComparisonList() {
     infoBtn.setAttribute("aria-expanded", "false");
     const bubbleId = `comparison-info-${entry.tz.replace(/[^a-z0-9]/gi, "-").toLowerCase()}`;
     infoBtn.setAttribute("aria-controls", bubbleId);
-    infoBtn.textContent = "ℹ";
+    infoBtn.innerHTML = '<i data-lucide="info"></i>';
 
     const infoBubble = document.createElement("div");
     infoBubble.className = "comparison-info-bubble";
@@ -1156,7 +1156,7 @@ function renderComparisonList() {
     favoriteToggleBtn.type = "button";
     favoriteToggleBtn.className = "comparison-fav-btn";
     const isFavorite = favorites.includes(entry.tz);
-    favoriteToggleBtn.textContent = isFavorite ? "★" : "☆";
+    favoriteToggleBtn.innerHTML = isFavorite ? '<i data-lucide="star" style="fill: currentColor"></i>' : '<i data-lucide="star"></i>';
     favoriteToggleBtn.setAttribute(
       "aria-label",
       `${isFavorite ? "Remove" : "Add"} ${entry.label} ${isFavorite ? "from" : "to"} favorites`
@@ -1172,7 +1172,7 @@ function renderComparisonList() {
     removeBtn.type = "button";
     removeBtn.className = "remove-btn";
     removeBtn.setAttribute("aria-label", `Remove ${entry.label}`);
-    removeBtn.textContent = "×";
+    removeBtn.innerHTML = '<i data-lucide="x"></i>';
     removeBtn.addEventListener("click", () => removeFromComparisonList(entry.tz));
     row.appendChild(labelSpan);
     row.appendChild(infoWrap);
@@ -1180,6 +1180,8 @@ function renderComparisonList() {
     row.appendChild(removeBtn);
     elements.comparisonList.appendChild(row);
   });
+
+  if (window.lucide) lucide.createIcons();
 }
 
 function closeAllComparisonInfoBubbles() {
@@ -1456,12 +1458,6 @@ function renderResults(rows) {
     abbrSpan.textContent = row.abbr || "—";
     header.appendChild(labelSpan);
     header.appendChild(ianaSpan);
-    if (row.source) {
-      const sourceSpan = document.createElement("span");
-      sourceSpan.className = "result-source";
-      sourceSpan.textContent = row.source;
-      header.appendChild(sourceSpan);
-    }
     header.appendChild(abbrSpan);
 
     if (row.removable) {
@@ -1469,7 +1465,7 @@ function renderResults(rows) {
       removeBtn.type = "button";
       removeBtn.className = "remove-btn";
       removeBtn.setAttribute("aria-label", `Remove ${row.label}`);
-      removeBtn.textContent = "×";
+      removeBtn.innerHTML = '<i data-lucide="x"></i>';
       removeBtn.addEventListener("click", () => removeFromComparisonList(row.iana));
       header.appendChild(removeBtn);
     }
@@ -1491,14 +1487,12 @@ function renderResults(rows) {
     }
     elements.resultsList.appendChild(card);
   });
+
+  if (window.lucide) lucide.createIcons();
 }
 
 function getMode() {
   return document.querySelector('input[name="mode"]:checked')?.value || "now";
-}
-
-function updateCopyButtonLabel() {
-  elements.copyAllBtn.textContent = getMode() === "pick" ? "Copy email subject" : "Copy all times";
 }
 
 function formatPickModeSubject(entries) {
@@ -1642,7 +1636,7 @@ function renderFavorites() {
 
   if (favoriteEntries.length === 0) {
     elements.favoritesMenuList.classList.add("empty");
-    elements.favoritesMenuList.textContent = "No favorites yet. Use the row star (☆) to save a timezone.";
+    elements.favoritesMenuList.innerHTML = 'No favorites yet. Use the row star (<i data-lucide="star" style="display:inline;width:1em;height:1em;vertical-align:middle;"></i>) to save a timezone.';
     return;
   }
 
@@ -1653,7 +1647,7 @@ function renderFavorites() {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "favorite-chip";
-    button.textContent = `★ ${entry.label}`;
+    button.innerHTML = '<i data-lucide="star" style="fill: currentColor; width: 14px; height: 14px; margin-right: 4px; vertical-align: middle;"></i>' + entry.label;
     button.title = `${entry.label} (${entry.tz})`;
     button.addEventListener("click", () => {
       elements.locationInput.value = formatLocationValue(entry);
@@ -1666,6 +1660,8 @@ function renderFavorites() {
     });
     elements.favoritesMenuList.appendChild(button);
   });
+
+  if (window.lucide) lucide.createIcons();
 }
 
 function setFavoritesMenuOpen(open) {
@@ -1804,12 +1800,14 @@ function renderBusinessLocationList() {
     removeBtn.type = "button";
     removeBtn.className = "remove-btn";
     removeBtn.setAttribute("aria-label", `Remove ${entry.label}`);
-    removeBtn.textContent = "×";
+    removeBtn.innerHTML = '<i data-lucide="x"></i>';
     removeBtn.addEventListener("click", () => removeBusinessLocation(entry.tz));
     chip.appendChild(removeBtn);
 
     elements.businessLocationList.appendChild(chip);
   });
+
+  if (window.lucide) lucide.createIcons();
 }
 
 function renderBusinessLocationSuggestions(query) {
@@ -2317,3 +2315,7 @@ async function copyText(text, successMessage) {
     elements.copyFeedback.textContent = "Copy failed. Your browser may block clipboard access.";
   }
 }
+
+document.addEventListener("DOMContentLoaded", () => {
+  if (window.lucide) lucide.createIcons();
+});
