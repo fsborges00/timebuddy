@@ -379,7 +379,8 @@ const elements = {
   businessWindows: document.getElementById("businessWindows"),
   businessSubjectCard: document.getElementById("businessSubjectCard"),
   businessSubjectPreview: document.getElementById("businessSubjectPreview"),
-  businessCopySubjectBtn: document.getElementById("businessCopySubjectBtn"),
+  businessCopyPreviewBox: document.getElementById("businessCopyPreviewBox"),
+  businessCopyTooltip: document.getElementById("businessCopyTooltip"),
   businessCopyFeedback: document.getElementById("businessCopyFeedback")
 };
 
@@ -655,8 +656,16 @@ function bindEvents() {
     elements.businessDateInput.addEventListener("change", renderBusinessHours);
   }
 
-  if (elements.businessCopySubjectBtn) {
-    elements.businessCopySubjectBtn.addEventListener("click", copyBusinessSubject);
+  if (elements.businessCopyPreviewBox) {
+    elements.businessCopyPreviewBox.addEventListener("click", () => {
+      copyBusinessSubject();
+    });
+    elements.businessCopyPreviewBox.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        copyBusinessSubject();
+      }
+    });
   }
 
   elements.copyPreviewBox.addEventListener("click", () => {
@@ -1973,20 +1982,24 @@ function drawBusinessTimeline(slots, locations) {
     cell.className = "timeline-hour";
     if (slot.openCount === 0) {
       cell.classList.add("level-none");
-    } else if (slot.openCount === slot.total) {
-      cell.classList.add("level-full");
-      cell.classList.add("is-selectable");
-      const slotISO = slot.etHourStart.toISO();
-      if (slotISO === selectedBusinessSlotISO) {
-        cell.classList.add("is-selected");
-      }
-      cell.addEventListener("click", () => {
-        selectedBusinessSlotISO = slotISO || "";
-        renderBusinessSubjectPreview(slots, locations);
-        drawBusinessTimeline(slots, locations);
-      });
     } else {
-      cell.classList.add("level-partial");
+      if (slot.openCount === slot.total) {
+        cell.classList.add("level-full");
+      } else {
+        cell.classList.add("level-partial");
+      }
+      if (slot.openCount > 0) {
+        cell.classList.add("is-selectable");
+        const slotISO = slot.etHourStart.toISO();
+        if (slotISO === selectedBusinessSlotISO) {
+          cell.classList.add("is-selected");
+        }
+        cell.addEventListener("click", () => {
+          selectedBusinessSlotISO = slotISO || "";
+          renderBusinessSubjectPreview(slots, locations);
+          drawBusinessTimeline(slots, locations);
+        });
+      }
     }
 
     const baseLine = document.createElement("div");
@@ -2033,22 +2046,21 @@ function drawBusinessWindows(slots, locations) {
 }
 
 function renderBusinessSubjectPreview(slots, locations) {
-  if (!elements.businessSubjectCard || !elements.businessSubjectPreview || !elements.businessCopyFeedback || !elements.businessCopySubjectBtn) return;
+  if (!elements.businessSubjectCard || !elements.businessSubjectPreview || !elements.businessCopyFeedback) return;
 
-  const fullSlots = slots.filter((slot) => slot.openCount === slot.total);
-  if (!fullSlots.length) {
+  const selectableSlots = slots.filter((slot) => slot.openCount > 0);
+  if (!selectableSlots.length) {
     clearBusinessSubjectPreview();
     return;
   }
 
   elements.businessSubjectCard.classList.remove("hidden");
-  const selectedSlot = fullSlots.find((slot) => slot.etHourStart.toISO() === selectedBusinessSlotISO) || null;
+  const selectedSlot = selectableSlots.find((slot) => slot.etHourStart.toISO() === selectedBusinessSlotISO) || null;
   if (!selectedSlot) {
     selectedBusinessSlotISO = "";
     selectedBusinessSubject = "";
-    elements.businessSubjectPreview.textContent = "Pick a green slot to preview.";
+    elements.businessSubjectPreview.textContent = "Pick a highlighted slot to preview.";
     elements.businessCopyFeedback.textContent = "";
-    elements.businessCopySubjectBtn.disabled = true;
     return;
   }
 
@@ -2056,7 +2068,6 @@ function renderBusinessSubjectPreview(slots, locations) {
   selectedBusinessSubject = buildBusinessSubjectForSlot(selectedSlot, locations);
   elements.businessSubjectPreview.textContent = selectedBusinessSubject;
   elements.businessCopyFeedback.textContent = "";
-  elements.businessCopySubjectBtn.disabled = false;
 }
 
 function buildBusinessSubjectForSlot(slot, locations) {
@@ -2083,24 +2094,14 @@ function clearBusinessSubjectPreview() {
   selectedBusinessSubject = "";
   if (elements.businessSubjectCard) elements.businessSubjectCard.classList.add("hidden");
   if (elements.businessSubjectPreview) {
-    elements.businessSubjectPreview.textContent = "Pick a green slot to preview.";
+    elements.businessSubjectPreview.textContent = "Pick a highlighted slot to preview.";
   }
   if (elements.businessCopyFeedback) elements.businessCopyFeedback.textContent = "";
-  if (elements.businessCopySubjectBtn) elements.businessCopySubjectBtn.disabled = true;
 }
 
 async function copyBusinessSubject() {
-  if (!elements.businessCopyFeedback) return;
-  if (!selectedBusinessSubject) {
-    elements.businessCopyFeedback.textContent = "No subject to copy yet.";
-    return;
-  }
-  try {
-    await navigator.clipboard.writeText(selectedBusinessSubject);
-    elements.businessCopyFeedback.textContent = "Email subject copied.";
-  } catch {
-    elements.businessCopyFeedback.textContent = "Copy failed. Your browser may block clipboard access.";
-  }
+  if (!elements.businessCopyTooltip) return;
+  await copyWithBubbleConfirmation(selectedBusinessSubject, elements.businessCopyTooltip);
 }
 
 function getFullOverlapWindows(slots) {

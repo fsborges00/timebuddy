@@ -101,7 +101,7 @@
           <!-- Base row (ET/CT) + per-zone rows rendered by app.js -->
         </div>
         <section class="next-steps" aria-label="Preview Output">
-          <h3>Preview Output</h3>
+          <h3>Time description</h3>
           <div class="copy-actions-container">
             <div id="copyPreviewBox" class="copy-preview-box action-btn-wrap" role="button" tabindex="0" aria-label="Copy to clipboard">
               <pre id="copyPreviewText" class="copy-preview-text"></pre>
@@ -159,10 +159,10 @@
       <div id="businessTimeline" class="business-timeline" aria-label="Business overlap timeline"></div>
       <div id="businessWindows" class="business-windows"></div>
       <section id="businessSubjectCard" class="business-subject-card hidden" aria-live="polite" aria-atomic="true">
-        <h3>Subject Preview</h3>
-        <p id="businessSubjectPreview" class="business-subject-preview">Pick a green slot to preview.</p>
-        <div class="copy-actions">
-          <button id="businessCopySubjectBtn" type="button">Copy subject</button>
+        <h3>Time description</h3>
+        <div id="businessCopyPreviewBox" class="copy-preview-box action-btn-wrap" role="button" tabindex="0" aria-label="Copy time description">
+          <pre id="businessSubjectPreview" class="copy-preview-text">Pick a highlighted slot to preview.</pre>
+          <div id="businessCopyTooltip" class="action-tooltip" role="tooltip">Copy to clipboard</div>
         </div>
         <p id="businessCopyFeedback" class="copy-feedback" role="status"></p>
       </section>
