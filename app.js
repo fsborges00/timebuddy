@@ -363,6 +363,12 @@ const elements = {
   inputTzSelect: document.getElementById("inputTzSelect"),
   resultsList: document.getElementById("resultsList"),
   copyAllBtn: document.getElementById("copyAllBtn"),
+  copyPreviewToggleBtn: document.getElementById("copyPreviewToggleBtn"),
+  copyPreviewBox: document.getElementById("copyPreviewBox"),
+  copyPreviewText: document.getElementById("copyPreviewText"),
+  copyAllTooltip: document.getElementById("copyAllTooltip"),
+  doubleCheckBtn: document.getElementById("doubleCheckBtn"),
+  doubleCheckTooltip: document.getElementById("doubleCheckTooltip"),
   copyFeedback: document.getElementById("copyFeedback"),
   businessLocationInput: document.getElementById("businessLocationInput"),
   businessLocationSuggestions: document.getElementById("businessLocationSuggestions"),
@@ -385,6 +391,7 @@ let selectedBaseTimezoneKey = loadBaseTimezoneKey();
 let ticker = null;
 let lastRenderedLines = [];
 let lastCopyText = "";
+let lastDoubleCheckPrompt = "";
 let locationSuggestions = [];
 let activeSuggestionIndex = -1;
 let citySuggestTimer = null;
@@ -650,9 +657,23 @@ function bindEvents() {
   }
 
   elements.copyAllBtn.addEventListener("click", () => {
-    const success = getMode() === "pick" ? "Email subject copied." : "All times copied.";
-    copyText(lastCopyText, success);
+    copyWithBubbleConfirmation(lastCopyText, elements.copyAllTooltip);
   });
+
+  if (elements.copyPreviewToggleBtn) {
+    elements.copyPreviewToggleBtn.addEventListener("click", () => {
+      const isExpanded = elements.copyPreviewToggleBtn.getAttribute("aria-expanded") === "true";
+      elements.copyPreviewToggleBtn.setAttribute("aria-expanded", String(!isExpanded));
+      elements.copyPreviewBox.classList.toggle("hidden", isExpanded);
+      elements.copyPreviewBox.setAttribute("aria-hidden", String(isExpanded));
+    });
+  }
+
+  if (elements.doubleCheckBtn) {
+    elements.doubleCheckBtn.addEventListener("click", () => {
+      copyWithBubbleConfirmation(lastDoubleCheckPrompt, elements.doubleCheckTooltip);
+    });
+  }
 
   document.addEventListener("click", (event) => {
     if (!(event.target instanceof Element)) return;
@@ -1204,6 +1225,7 @@ function refresh() {
     elements.resultsList.appendChild(p);
     lastRenderedLines = [];
     lastCopyText = "";
+    lastDoubleCheckPrompt = "";
     return;
   }
 
@@ -1264,6 +1286,13 @@ function refresh() {
   lastCopyText = getMode() === "pick"
     ? formatPickModeSubject(subjectEntries)
     : linesForCopy.join("\n");
+  lastDoubleCheckPrompt = buildDoubleCheckPrompt({
+    instant,
+    linesForCopy
+  });
+  if (elements.copyPreviewText) {
+    elements.copyPreviewText.textContent = lastCopyText;
+  }
   renderResults(rowsForRender);
 }
 
@@ -1494,6 +1523,62 @@ function formatPickModeSubject(entries) {
   });
 
   return dayGroups.join(" /// ");
+}
+
+function buildDoubleCheckPrompt({ instant, linesForCopy }) {
+  const mode = getMode() === "pick" ? "Custom" : "Live";
+  const baseLabel = getBaseTimezoneLabel();
+  const baseTz = getBaseTimezoneTz();
+  const selectedZones = comparisonZones.length
+    ? comparisonZones.map((entry) => `${entry.label} (${entry.tz})`).join("; ")
+    : "No comparison zones selected.";
+  const outputLines = linesForCopy.length
+    ? linesForCopy.map((line, index) => `${index + 1}. ${line}`).join("\n")
+    : "No conversion rows are available.";
+  const qualityNoticeText = elements.qualityNotice?.textContent?.trim();
+
+  const promptLines = [
+    "You are validating timezone conversions from Time Buddy.",
+    "Recompute every conversion independently and report any mismatches.",
+    "",
+    "Context",
+    `- Mode: ${mode}`,
+    `- Anchor timezone: ${baseLabel} (${baseTz})`,
+    `- Reference instant (ISO): ${instant?.toISO() || "Unavailable"}`,
+    `- Selected comparison zones: ${selectedZones}`
+  ];
+
+  if (mode === "Custom") {
+    const dateText = elements.dateInput?.value || "Not set";
+    const hourText = (elements.timeHourInput?.value || "").trim() || "Not set";
+    const minuteText = (elements.timeMinuteInput?.value || "").trim() || "00";
+    const meridiemText = elements.timeMeridiemSelect?.value || "AM";
+    const inputZone = elements.inputTzSelect?.value || baseTz;
+    promptLines.push(
+      `- Custom date input: ${dateText}`,
+      `- Custom time input: ${hourText}:${minuteText} ${meridiemText}`,
+      `- Custom input timezone: ${inputZone}`
+    );
+  }
+
+  if (qualityNoticeText) {
+    promptLines.push(`- DST note shown by app: ${qualityNoticeText}`);
+  }
+
+  promptLines.push(
+    "",
+    "Time Buddy output to verify",
+    outputLines,
+    "",
+    "Validation instructions",
+    "1) Compute the expected local time for each timezone in the list.",
+    "2) Compare your computed values with each Time Buddy line.",
+    "3) Return a pass/fail table with one row per timezone line.",
+    "4) If there are mismatches, explain why and include corrected values.",
+    "5) If all entries match, conclude with: All conversions match."
+  );
+
+  return promptLines.join("\n");
 }
 
 function formatMonthDayWithOrdinal(dateTime) {
@@ -2180,6 +2265,43 @@ function getZoneCodeToZonesMap() {
 
   zoneCodeToZonesCache = map;
   return map;
+}
+
+const COPY_TO_CLIPBOARD_LABEL = "Copy to clipboard";
+
+function showCopyConfirmation(tooltipElement, success) {
+  if (!tooltipElement) return;
+  const wrap = tooltipElement.closest(".action-btn-wrap");
+  if (!wrap) return;
+  tooltipElement.textContent = success ? "Copied" : "Copy failed";
+  wrap.classList.add("is-confirmation");
+  window.setTimeout(() => {
+    tooltipElement.textContent = COPY_TO_CLIPBOARD_LABEL;
+    wrap.classList.remove("is-confirmation");
+  }, 2000);
+}
+
+async function copyWithBubbleConfirmation(text, tooltipElement) {
+  if (!text) {
+    if (tooltipElement) {
+      const wrap = tooltipElement.closest(".action-btn-wrap");
+      if (wrap) {
+        tooltipElement.textContent = "Nothing to copy yet.";
+        wrap.classList.add("is-confirmation");
+        window.setTimeout(() => {
+          tooltipElement.textContent = COPY_TO_CLIPBOARD_LABEL;
+          wrap.classList.remove("is-confirmation");
+        }, 2000);
+      }
+    }
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(text);
+    showCopyConfirmation(tooltipElement, true);
+  } catch {
+    showCopyConfirmation(tooltipElement, false);
+  }
 }
 
 async function copyText(text, successMessage) {
