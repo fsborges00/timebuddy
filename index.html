@@ -8,13 +8,14 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
+  <script src="https://unpkg.com/lucide@latest"></script>
   <script src="https://cdn.jsdelivr.net/npm/luxon@3.5.0/build/global/luxon.min.js" defer></script>
   <script src="app.js?v=20260303a" defer></script>
 </head>
 <body>
   <main class="container">
     <header class="app-header">
-      <h1>Time Buddy</h1>
+      <h1 id="appTitle"><i data-lucide="globe" class="app-logo"></i> Time Buddy</h1>
       <p>Compare multiple time zones with <strong id="baseZoneLabelText">ET</strong> (<span id="baseZoneIanaText">America/New_York</span>) as a built-in anchor.</p>
     </header>
 
@@ -38,7 +39,7 @@
           <div class="location-input-wrap">
             <input id="locationInput" placeholder="Type a timezone code, city, country, or timezone" autocomplete="off" />
             <div class="favorites-menu-wrap">
-              <button id="favoriteBtn" class="icon-btn" type="button" aria-label="Show saved favorites" title="Saved favorites" aria-expanded="false" aria-controls="favoritesMenu">☆</button>
+              <button id="favoriteBtn" class="icon-btn" type="button" aria-label="Show saved favorites" title="Saved favorites" aria-expanded="false" aria-controls="favoritesMenu"><i data-lucide="star"></i></button>
               <div id="favoritesMenu" class="favorites-menu hidden" aria-label="Saved favorites">
                 <p class="favorites-menu-title">Saved favorites</p>
                 <div id="favoritesMenuList" class="favorites-menu-list empty">No favorites yet.</div>
@@ -81,7 +82,7 @@
           <div class="advanced-settings">
             <button id="advancedSettingsToggle" class="advanced-settings-toggle" type="button" aria-expanded="false" aria-controls="advancedSettingsContent">
               <span>Advanced settings</span>
-              <span class="advanced-settings-chevron" aria-hidden="true">▾</span>
+              <span class="advanced-settings-chevron" aria-hidden="true"><i data-lucide="chevron-down"></i></span>
             </button>
             <div id="advancedSettingsContent" class="advanced-settings-content hidden">
               <div class="field-row">
@@ -99,22 +100,17 @@
         <div id="resultsList" class="results-list">
           <!-- Base row (ET/CT) + per-zone rows rendered by app.js -->
         </div>
-        <section class="next-steps" aria-label="Next steps">
-          <h3>Next Steps</h3>
+        <section class="next-steps" aria-label="Preview Output">
+          <h3>Preview Output</h3>
           <div class="copy-actions-container">
+            <div id="copyPreviewBox" class="copy-preview-box action-btn-wrap" role="button" tabindex="0" aria-label="Copy to clipboard">
+              <pre id="copyPreviewText" class="copy-preview-text"></pre>
+              <div id="copyAllTooltip" class="action-tooltip" role="tooltip">Copy to clipboard</div>
+            </div>
             <div class="copy-actions">
-              <div class="action-btn-wrap">
-                <div class="split-btn">
-                  <button id="copyAllBtn" type="button">Copy all times</button>
-                  <button id="copyPreviewToggleBtn" class="split-btn-toggle" type="button" aria-expanded="false" aria-label="Toggle preview" aria-controls="copyPreviewBox">
-                    <span class="advanced-settings-chevron" aria-hidden="true">▾</span>
-                  </button>
-                </div>
-                <div id="copyAllTooltip" class="action-tooltip" role="tooltip">Copy to clipboard</div>
-              </div>
               <div class="double-check-wrap">
                 <div class="action-btn-wrap">
-                  <button id="doubleCheckBtn" type="button">Double Check</button>
+                  <button id="doubleCheckBtn" type="button">Verify Results</button>
                   <div id="doubleCheckTooltip" class="action-tooltip" role="tooltip">Copy to clipboard</div>
                 </div>
                 <div class="info-btn-wrap">
@@ -122,19 +118,16 @@
                     id="doubleCheckInfoBtn"
                     class="double-check-info-btn"
                     type="button"
-                    aria-label="How Double Check works"
+                    aria-label="How Verify Results works"
                     aria-describedby="doubleCheckInfoBubble"
                   >
-                    ?
+                    <i data-lucide="help-circle"></i>
                   </button>
                   <div id="doubleCheckInfoBubble" class="double-check-info-bubble" role="tooltip">
                     Copies a verification prompt with your selected zones and results so you can paste it into another LLM and confirm Time Buddy output.
                   </div>
                 </div>
               </div>
-            </div>
-            <div id="copyPreviewBox" class="copy-preview-box hidden" aria-hidden="true">
-              <pre id="copyPreviewText" class="copy-preview-text"></pre>
             </div>
           </div>
           <p id="copyFeedback" class="copy-feedback" role="status"></p>
