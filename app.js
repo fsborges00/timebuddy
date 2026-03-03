@@ -1290,9 +1290,7 @@ function refresh() {
   const rowsForRender = rows.map(({ dateTime, ...rest }) => rest);
 
   lastRenderedLines = linesForCopy;
-  lastCopyText = getMode() === "pick"
-    ? formatPickModeSubject(subjectEntries)
-    : linesForCopy.join("\n");
+  lastCopyText = formatPickModeSubject(subjectEntries);
   lastDoubleCheckPrompt = buildDoubleCheckPrompt({
     instant,
     linesForCopy
