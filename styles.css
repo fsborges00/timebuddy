@@ -9,7 +9,8 @@
   --accent: #129e95;
   --accent-deep: #0c6a64;
   --accent-soft: rgba(18, 158, 149, 0.1);
-  --mode-accent: #df6c5b;
+  /* Lilac accent for mode toggle radios */
+  --mode-accent: #b68cf2;
   --signal: #e85d4d;
   --focus: #129e95;
 }
