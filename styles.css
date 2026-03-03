@@ -49,9 +49,12 @@ body {
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  font-size: clamp(2.1rem, 3vw, 2.8rem);
-  letter-spacing: 0.01em;
-  font-weight: 700;
+  font-family: "Outfit", "Manrope", sans-serif;
+  font-size: clamp(2.25rem, 4vw, 3rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  color: var(--text);
 }
 
 .app-logo {
@@ -127,8 +130,48 @@ body {
   gap: 0.44rem;
 }
 
-.base-zone-field {
-  max-width: 220px;
+.buddy-toggle-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.buddy-toggle-label {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--text);
+}
+
+.buddy-toggle {
+  display: inline-flex;
+  padding: 0.25rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--soft-purple) 30%, rgba(255, 255, 255, 0.8));
+  box-shadow: 0 2px 8px rgba(90, 86, 112, 0.04);
+}
+
+.buddy-toggle-btn {
+  padding: 0.45rem 1rem;
+  border-radius: 999px;
+  border: none;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+  transition: all 220ms ease;
+}
+
+.buddy-toggle-btn:hover {
+  color: var(--text);
+}
+
+.buddy-toggle-btn.active {
+  color: #fff;
+  background: var(--accent);
+  box-shadow: 0 2px 6px rgba(18, 158, 149, 0.3);
 }
 
 label,
@@ -979,24 +1022,37 @@ fieldset {
 
 .double-check-info-bubble {
   position: absolute;
-  top: calc(100% + 0.4rem);
+  bottom: calc(100% + 0.5rem);
   right: 0;
-  z-index: 9;
-  min-width: 250px;
+  z-index: 20;
+  min-width: 260px;
   max-width: min(360px, 82vw);
-  padding: 0.5rem 0.62rem;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--accent-soft) 54%, white);
-  color: var(--muted);
-  font-size: 0.82rem;
-  line-height: 1.35;
-  box-shadow: 0 8px 18px rgba(9, 36, 33, 0.08);
+  padding: 0.65rem 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, white);
+  border-radius: 12px;
+  background: var(--bg-bright);
+  color: var(--text);
+  font-size: 0.84rem;
+  line-height: 1.4;
+  box-shadow: 0 10px 28px rgba(18, 158, 149, 0.12), 0 4px 12px rgba(0, 0, 0, 0.06);
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
-  transform: translateY(-4px);
+  transform: translateY(4px);
   transition: opacity 180ms ease, transform 180ms ease, visibility 0s linear 180ms;
+}
+
+.double-check-info-bubble::after {
+  content: "";
+  position: absolute;
+  bottom: -6px;
+  right: 20px;
+  width: 10px;
+  height: 10px;
+  background: var(--bg-bright);
+  border-right: 1px solid color-mix(in srgb, var(--accent) 35%, white);
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 35%, white);
+  transform: rotate(45deg);
 }
 
 .info-btn-wrap:hover .double-check-info-bubble,

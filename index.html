@@ -7,7 +7,7 @@
   <link rel="icon" type="image/svg+xml" href="favicon.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Manrope:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
   <script src="https://unpkg.com/lucide@latest"></script>
   <script src="https://cdn.jsdelivr.net/npm/luxon@3.5.0/build/global/luxon.min.js" defer></script>
@@ -17,7 +17,7 @@
   <main class="container">
     <header class="app-header">
       <h1 id="appTitle"><i data-lucide="globe" class="app-logo"></i> Time Buddy</h1>
-      <p>Compare multiple time zones with <strong id="baseZoneLabelText">ET</strong> (<span id="baseZoneIanaText">America/New_York</span>) as a built-in anchor.</p>
+      <p id="appSubtitle">Compare time zones with ET or CT as your anchor.</p>
     </header>
 
     <nav class="view-tabs" aria-label="Feature tabs">
@@ -27,12 +27,12 @@
 
     <div id="converterView" class="app-view">
       <section class="panel controls" aria-label="Time settings">
-        <div class="field-row base-zone-field">
-          <label for="baseZoneSelect">Anchor timezone</label>
-          <select id="baseZoneSelect" aria-label="Anchor timezone">
-            <option value="ET">ET</option>
-            <option value="CT">CT</option>
-          </select>
+        <div class="field-row buddy-toggle-wrap">
+          <span class="buddy-toggle-label">Select buddy:</span>
+          <div id="baseZoneToggle" class="buddy-toggle" role="group" aria-label="Select buddy">
+            <button type="button" id="baseZoneBtnET" class="buddy-toggle-btn active" aria-pressed="true" data-value="ET">ET</button>
+            <button type="button" id="baseZoneBtnCT" class="buddy-toggle-btn" aria-pressed="false" data-value="CT">CT</button>
+          </div>
         </div>
 
         <div class="field-row">

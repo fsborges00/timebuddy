@@ -344,9 +344,9 @@ const elements = {
   tabGoldenHours: document.getElementById("tabGoldenHours"),
   converterView: document.getElementById("converterView"),
   goldenHoursView: document.getElementById("goldenHoursView"),
-  baseZoneSelect: document.getElementById("baseZoneSelect"),
-  baseZoneLabelText: document.getElementById("baseZoneLabelText"),
-  baseZoneIanaText: document.getElementById("baseZoneIanaText"),
+  baseZoneToggle: document.getElementById("baseZoneToggle"),
+  baseZoneBtnET: document.getElementById("baseZoneBtnET"),
+  baseZoneBtnCT: document.getElementById("baseZoneBtnCT"),
   locationInput: document.getElementById("locationInput"),
   locationSuggestions: document.getElementById("locationSuggestions"),
   favoriteBtn: document.getElementById("favoriteBtn"),
@@ -465,15 +465,12 @@ function getBaseTimezoneTz() {
 
 function syncBaseTimezoneUI() {
   const base = getBaseTimezoneConfig();
-  if (elements.baseZoneSelect) {
-    elements.baseZoneSelect.value = selectedBaseTimezoneKey;
-  }
-  if (elements.baseZoneLabelText) {
-    elements.baseZoneLabelText.textContent = base.label;
-  }
-  if (elements.baseZoneIanaText) {
-    elements.baseZoneIanaText.textContent = base.tz;
-  }
+  [elements.baseZoneBtnET, elements.baseZoneBtnCT].forEach((btn) => {
+    if (!btn) return;
+    const isActive = btn.getAttribute("data-value") === selectedBaseTimezoneKey;
+    btn.classList.toggle("active", isActive);
+    btn.setAttribute("aria-pressed", String(isActive));
+  });
   if (elements.appTitle) {
     elements.appTitle.innerHTML = `<i data-lucide="globe" class="app-logo"></i> ${base.label} Time Buddy`;
     if (window.lucide) {
@@ -483,8 +480,7 @@ function syncBaseTimezoneUI() {
   document.title = `${base.label} Time Buddy`;
 }
 
-function onBaseTimezoneChange() {
-  const nextKey = elements.baseZoneSelect?.value || DEFAULT_BASE_TIMEZONE_KEY;
+function setBaseTimezoneKey(nextKey) {
   if (!BASE_TIMEZONES[nextKey]) return;
   if (nextKey === selectedBaseTimezoneKey) return;
   selectedBaseTimezoneKey = nextKey;
@@ -507,9 +503,9 @@ function pruneComparisonListForBaseTimezone() {
 }
 
 function bindEvents() {
-  if (elements.baseZoneSelect) {
-    elements.baseZoneSelect.addEventListener("change", onBaseTimezoneChange);
-  }
+  [elements.baseZoneBtnET, elements.baseZoneBtnCT].forEach((btn) => {
+    if (btn) btn.addEventListener("click", () => setBaseTimezoneKey(btn.getAttribute("data-value")));
+  });
 
   if (elements.tabConverter) {
     elements.tabConverter.addEventListener("click", () => setActiveView("converter"));
