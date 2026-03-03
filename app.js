@@ -1,7 +1,11 @@
 const { DateTime } = luxon;
 
-const HOME_TZ = "America/New_York";
-const HOME_LABEL = "ET";
+const BASE_TIMEZONES = Object.freeze({
+  ET: { label: "ET", tz: "America/New_York" },
+  CT: { label: "CT", tz: "America/Chicago" }
+});
+const DEFAULT_BASE_TIMEZONE_KEY = "ET";
+const BASE_TIMEZONE_KEY = "et-time-buddy-base-timezone";
 const FAVORITES_KEY = "et-time-buddy-favorites";
 const COMPARISON_LIST_KEY = "et-time-buddy-comparison-list";
 const CITY_LOOKUP_CACHE_KEY = "et-time-buddy-city-lookup-cache-v1";
@@ -339,6 +343,9 @@ const elements = {
   tabGoldenHours: document.getElementById("tabGoldenHours"),
   converterView: document.getElementById("converterView"),
   goldenHoursView: document.getElementById("goldenHoursView"),
+  baseZoneSelect: document.getElementById("baseZoneSelect"),
+  baseZoneLabelText: document.getElementById("baseZoneLabelText"),
+  baseZoneIanaText: document.getElementById("baseZoneIanaText"),
   locationInput: document.getElementById("locationInput"),
   locationSuggestions: document.getElementById("locationSuggestions"),
   favoriteBtn: document.getElementById("favoriteBtn"),
@@ -348,6 +355,7 @@ const elements = {
   customTimeSection: document.getElementById("customTimeSection"),
   advancedSettingsToggle: document.getElementById("advancedSettingsToggle"),
   advancedSettingsContent: document.getElementById("advancedSettingsContent"),
+  qualityNotice: document.getElementById("qualityNotice"),
   dateInput: document.getElementById("dateInput"),
   timeHourInput: document.getElementById("timeHourInput"),
   timeMinuteInput: document.getElementById("timeMinuteInput"),
@@ -373,6 +381,7 @@ const elements = {
 let comparisonZones = loadComparisonList();
 let favorites = loadFavorites();
 let cityLookupCache = loadCityLookupCache();
+let selectedBaseTimezoneKey = loadBaseTimezoneKey();
 let ticker = null;
 let lastRenderedLines = [];
 let lastCopyText = "";
@@ -393,9 +402,11 @@ let selectedBusinessSubject = "";
 initialize();
 
 function initialize() {
+  syncBaseTimezoneUI();
+  pruneComparisonListForBaseTimezone();
   syncLocationInputWithFirst();
 
-  const now = DateTime.now().setZone(HOME_TZ);
+  const now = DateTime.now().setZone(getBaseTimezoneTz());
   elements.dateInput.value = now.toISODate();
   elements.businessDateInput.value = now.toISODate();
   setTimePickerFromDateTime(now);
@@ -420,7 +431,74 @@ function initialize() {
   }
 }
 
+function loadBaseTimezoneKey() {
+  try {
+    const raw = localStorage.getItem(BASE_TIMEZONE_KEY);
+    if (raw && BASE_TIMEZONES[raw]) return raw;
+  } catch (_) {
+    // Ignore storage errors and fall back to ET.
+  }
+  return DEFAULT_BASE_TIMEZONE_KEY;
+}
+
+function saveBaseTimezoneKey(key) {
+  localStorage.setItem(BASE_TIMEZONE_KEY, key);
+}
+
+function getBaseTimezoneConfig() {
+  return BASE_TIMEZONES[selectedBaseTimezoneKey] || BASE_TIMEZONES[DEFAULT_BASE_TIMEZONE_KEY];
+}
+
+function getBaseTimezoneLabel() {
+  return getBaseTimezoneConfig().label;
+}
+
+function getBaseTimezoneTz() {
+  return getBaseTimezoneConfig().tz;
+}
+
+function syncBaseTimezoneUI() {
+  const base = getBaseTimezoneConfig();
+  if (elements.baseZoneSelect) {
+    elements.baseZoneSelect.value = selectedBaseTimezoneKey;
+  }
+  if (elements.baseZoneLabelText) {
+    elements.baseZoneLabelText.textContent = base.label;
+  }
+  if (elements.baseZoneIanaText) {
+    elements.baseZoneIanaText.textContent = base.tz;
+  }
+  document.title = `${base.label} Time Buddy`;
+}
+
+function onBaseTimezoneChange() {
+  const nextKey = elements.baseZoneSelect?.value || DEFAULT_BASE_TIMEZONE_KEY;
+  if (!BASE_TIMEZONES[nextKey]) return;
+  if (nextKey === selectedBaseTimezoneKey) return;
+  selectedBaseTimezoneKey = nextKey;
+  saveBaseTimezoneKey(selectedBaseTimezoneKey);
+  syncBaseTimezoneUI();
+  pruneComparisonListForBaseTimezone();
+  syncLocationInputWithFirst();
+  renderComparisonList();
+  populateInputTzSelect();
+  refresh();
+  renderBusinessHours();
+}
+
+function pruneComparisonListForBaseTimezone() {
+  const baseTz = getBaseTimezoneTz();
+  const filtered = comparisonZones.filter((entry) => entry.tz !== baseTz);
+  if (filtered.length === comparisonZones.length) return;
+  comparisonZones = filtered;
+  saveComparisonList(comparisonZones);
+}
+
 function bindEvents() {
+  if (elements.baseZoneSelect) {
+    elements.baseZoneSelect.addEventListener("change", onBaseTimezoneChange);
+  }
+
   if (elements.tabConverter) {
     elements.tabConverter.addEventListener("click", () => setActiveView("converter"));
   }
@@ -637,7 +715,7 @@ async function attemptAddFromInput(selectedOverride = null) {
   }
 
   if (addStatus === "home-zone") {
-    elements.copyFeedback.textContent = `${entry.label} uses ${HOME_LABEL}, which is already shown.`;
+    elements.copyFeedback.textContent = `${entry.label} uses ${getBaseTimezoneLabel()}, which is already shown.`;
     return;
   }
 
@@ -961,7 +1039,7 @@ function syncLocationInputWithFirst() {
 
 function addToComparisonList(entry) {
   if (!entry || !entry.tz || !isValidZone(entry.tz)) return "invalid";
-  if (entry.tz === HOME_TZ) return "home-zone";
+  if (entry.tz === getBaseTimezoneTz()) return "home-zone";
   if (comparisonZones.some((z) => z.tz === entry.tz)) return "duplicate";
   comparisonZones.push({
     label: entry.label || getLabelForZone(entry.tz),
@@ -1096,7 +1174,9 @@ function closeAllComparisonInfoBubbles() {
 function populateInputTzSelect() {
   const previousValue = elements.inputTzSelect.value;
   const options = [];
-  options.push({ value: HOME_TZ, label: `${HOME_LABEL} (${HOME_TZ})` });
+  const baseTimezoneTz = getBaseTimezoneTz();
+  const baseTimezoneLabel = getBaseTimezoneLabel();
+  options.push({ value: baseTimezoneTz, label: `${baseTimezoneLabel} (${baseTimezoneTz})` });
   comparisonZones.forEach((z) => {
     options.push({ value: z.tz, label: `${z.label} (${z.tz})` });
   });
@@ -1115,6 +1195,7 @@ function populateInputTzSelect() {
 }
 
 function refresh() {
+  updateQualityNotice();
   const instant = getReferenceInstant();
   if (!instant || !instant.isValid) {
     elements.resultsList.innerHTML = "";
@@ -1126,20 +1207,24 @@ function refresh() {
     return;
   }
 
-  const etDateTime = instant.setZone(HOME_TZ);
+  const baseDateTime = instant.setZone(getBaseTimezoneTz());
   const rows = [];
 
-  // ET row first
-  const etAbbr = getOffsetAbbreviation(etDateTime);
-  const etFormatted = formatLongWithAbbr(etDateTime);
+  // Base timezone row first (ET or CT)
+  const baseAbbr = getOffsetAbbreviation(baseDateTime);
+  const baseFormatted = formatLongWithAbbr(baseDateTime);
+  const baseOffsetLabel = formatUtcOffset(baseDateTime.offset);
+  const baseDstState = getDstStateLabel(baseDateTime);
   rows.push({
-    label: HOME_LABEL,
-    iana: HOME_TZ,
-    formatted: etFormatted,
-    abbr: etAbbr,
+    label: getBaseTimezoneLabel(),
+    iana: getBaseTimezoneTz(),
+    formatted: baseFormatted,
+    abbr: baseAbbr,
+    offsetLabel: baseOffsetLabel,
+    dstState: baseDstState,
     difference: null,
     removable: false,
-    dateTime: etDateTime
+    dateTime: baseDateTime
   });
 
   // Each comparison zone
@@ -1147,12 +1232,16 @@ function refresh() {
     const zoned = instant.setZone(entry.tz);
     const abbr = getOffsetAbbreviation(zoned);
     const formatted = formatLongWithAbbr(zoned);
-    const difference = describeOffsetDifference(zoned, etDateTime);
+    const offsetLabel = formatUtcOffset(zoned.offset);
+    const dstState = getDstStateLabel(zoned);
+    const difference = describeOffsetDifference(zoned, baseDateTime);
     rows.push({
       label: entry.label,
       iana: entry.tz,
       formatted,
       abbr,
+      offsetLabel,
+      dstState,
       difference,
       removable: true,
       source: entry.source || "Manual selection",
@@ -1164,9 +1253,9 @@ function refresh() {
 
   const linesForCopy = rows.map((row) => {
     if (row.difference == null) {
-      return `${row.label} (${row.iana}): ${row.formatted} ${row.abbr}`;
+      return `${row.label} (${row.iana}): ${row.formatted} ${row.abbr} (${row.offsetLabel}, ${row.dstState})`;
     }
-    return `${row.label} (${row.iana}): ${row.formatted} ${row.abbr} — ${row.difference}`;
+    return `${row.label} (${row.iana}): ${row.formatted} ${row.abbr} (${row.offsetLabel}, ${row.dstState}) — ${row.difference}`;
   });
   const subjectEntries = rows.map((row) => ({ dateTime: row.dateTime, abbr: row.abbr }));
   const rowsForRender = rows.map(({ dateTime, ...rest }) => rest);
@@ -1183,7 +1272,7 @@ function getReferenceInstant() {
     return DateTime.now();
   }
   if (!elements.dateInput.value) return null;
-  const inputTz = elements.inputTzSelect.value || HOME_TZ;
+  const inputTz = elements.inputTzSelect.value || getBaseTimezoneTz();
   const selected = getSelectedTimeParts();
   if (!selected) return null;
   const { hour24, minute } = selected;
@@ -1248,14 +1337,73 @@ function formatLongWithAbbr(dateTime) {
   return dateTime.toFormat("ccc, LLL d, yyyy, h:mm a");
 }
 
-function describeOffsetDifference(remoteDateTime, etDateTime) {
-  const deltaMinutes = remoteDateTime.offset - etDateTime.offset;
-  if (deltaMinutes === 0) return "Same as ET";
+function formatUtcOffset(offsetMinutes) {
+  const sign = offsetMinutes >= 0 ? "+" : "-";
+  const absolute = Math.abs(offsetMinutes);
+  const hours = String(Math.floor(absolute / 60)).padStart(2, "0");
+  const minutes = String(absolute % 60).padStart(2, "0");
+  return `UTC${sign}${hours}:${minutes}`;
+}
+
+function getDstStateLabel(dateTime) {
+  return dateTime.isInDST ? "DST" : "Standard";
+}
+
+function updateQualityNotice() {
+  if (!elements.qualityNotice) return;
+  if (getMode() !== "pick") {
+    elements.qualityNotice.textContent = "";
+    elements.qualityNotice.classList.add("hidden");
+    return;
+  }
+
+  const dateValue = elements.dateInput?.value;
+  const inputTz = elements.inputTzSelect?.value || getBaseTimezoneTz();
+  if (!dateValue || !inputTz) {
+    elements.qualityNotice.textContent = "";
+    elements.qualityNotice.classList.add("hidden");
+    return;
+  }
+
+  const transitionNotice = getDstTransitionNotice(dateValue, inputTz);
+  if (!transitionNotice) {
+    elements.qualityNotice.textContent = "";
+    elements.qualityNotice.classList.add("hidden");
+    return;
+  }
+
+  elements.qualityNotice.textContent = transitionNotice;
+  elements.qualityNotice.classList.remove("hidden");
+}
+
+function getDstTransitionNotice(dateIso, timeZone) {
+  const start = DateTime.fromISO(`${dateIso}T00:00`, { zone: timeZone });
+  if (!start.isValid) return "";
+
+  let previous = start;
+  for (let hour = 1; hour <= 24; hour += 1) {
+    const current = start.plus({ hours: hour });
+    if (current.offset !== previous.offset) {
+      const fromOffset = formatUtcOffset(previous.offset);
+      const toOffset = formatUtcOffset(current.offset);
+      const windowStart = previous.toFormat("h:mm a");
+      const windowEnd = current.toFormat("h:mm a");
+      return `DST transition in ${timeZone} on this date (${fromOffset} -> ${toOffset}, around ${windowStart}-${windowEnd}). Double-check final meeting times.`;
+    }
+    previous = current;
+  }
+  return "";
+}
+
+function describeOffsetDifference(remoteDateTime, baseDateTime) {
+  const baseLabel = getBaseTimezoneLabel();
+  const deltaMinutes = remoteDateTime.offset - baseDateTime.offset;
+  if (deltaMinutes === 0) return `Same as ${baseLabel}`;
   const absolute = Math.abs(deltaMinutes);
   const hours = Math.floor(absolute / 60);
   const minutes = absolute % 60;
   const sign = deltaMinutes > 0 ? "+" : "-";
-  const relation = deltaMinutes > 0 ? "ahead of ET" : "behind ET";
+  const relation = deltaMinutes > 0 ? `ahead of ${baseLabel}` : `behind ${baseLabel}`;
   const hourText = `${hours}h`;
   const minuteText = minutes ? ` ${minutes}m` : "";
   return `${sign}${hourText}${minuteText} ${relation}`;
@@ -1300,8 +1448,12 @@ function renderResults(rows) {
     const timeLine = document.createElement("p");
     timeLine.className = "result-time";
     timeLine.textContent = row.formatted;
+    const metaLine = document.createElement("p");
+    metaLine.className = "result-meta";
+    metaLine.textContent = `${row.offsetLabel} • ${row.dstState}`;
     card.appendChild(header);
     card.appendChild(timeLine);
+    card.appendChild(metaLine);
     if (row.difference != null) {
       const diffLine = document.createElement("p");
       diffLine.className = "result-difference";
@@ -1701,8 +1853,8 @@ function renderBusinessHours() {
 
   const dateValue = elements.businessDateInput?.value;
   const baseDate = dateValue
-    ? DateTime.fromISO(`${dateValue}T00:00`, { zone: HOME_TZ })
-    : DateTime.now().setZone(HOME_TZ).startOf("day");
+    ? DateTime.fromISO(`${dateValue}T00:00`, { zone: getBaseTimezoneTz() })
+    : DateTime.now().setZone(getBaseTimezoneTz()).startOf("day");
 
   const slots = [];
   for (let hour = 0; hour < 24; hour += 1) {
@@ -1722,7 +1874,7 @@ function renderBusinessHours() {
 
   const fullHours = slots.filter((slot) => slot.openCount === slot.total).length;
   if (fullHours > 0) {
-    elements.businessSummary.textContent = `${fullHours} overlap hour(s) · ${baseDate.toFormat("LLL d, yyyy")} ET`;
+    elements.businessSummary.textContent = `${fullHours} overlap hour(s) · ${baseDate.toFormat("LLL d, yyyy")} ${getBaseTimezoneLabel()}`;
     return;
   }
 
@@ -1732,6 +1884,7 @@ function renderBusinessHours() {
 
 function drawBusinessTimeline(slots, locations) {
   elements.businessTimeline.innerHTML = "";
+  const baseLabel = getBaseTimezoneLabel();
   slots.forEach((slot) => {
     const cell = document.createElement("div");
     cell.className = "timeline-hour";
@@ -1753,10 +1906,10 @@ function drawBusinessTimeline(slots, locations) {
       cell.classList.add("level-partial");
     }
 
-    const etLine = document.createElement("div");
-    etLine.className = "hour-line et-line";
-    etLine.textContent = `ET: ${formatHourRange(slot.etHourStart, slot.etHourStart.plus({ hours: 1 }))}`;
-    cell.appendChild(etLine);
+    const baseLine = document.createElement("div");
+    baseLine.className = "hour-line et-line";
+    baseLine.textContent = `${baseLabel}: ${formatHourRange(slot.etHourStart, slot.etHourStart.plus({ hours: 1 }))}`;
+    cell.appendChild(baseLine);
 
     locations.forEach((location) => {
       const start = slot.etHourStart.setZone(location.tz);
@@ -1773,6 +1926,7 @@ function drawBusinessTimeline(slots, locations) {
 
 function drawBusinessWindows(slots, locations) {
   elements.businessWindows.innerHTML = "";
+  const baseLabel = getBaseTimezoneLabel();
   const windows = getFullOverlapWindows(slots);
   if (!windows.length) return;
 
@@ -1782,7 +1936,7 @@ function drawBusinessWindows(slots, locations) {
 
     const title = document.createElement("div");
     title.className = "business-window-title";
-    title.textContent = `${formatTimeRange(window.start, window.end)} ET`;
+    title.textContent = `${formatTimeRange(window.start, window.end)} ${baseLabel}`;
     card.appendChild(title);
 
     const locals = document.createElement("div");
@@ -1824,10 +1978,10 @@ function renderBusinessSubjectPreview(slots, locations) {
 
 function buildBusinessSubjectForSlot(slot, locations) {
   const entries = [];
-  const etDateTime = slot.etHourStart.setZone(HOME_TZ);
+  const baseDateTime = slot.etHourStart.setZone(getBaseTimezoneTz());
   entries.push({
-    dateTime: etDateTime,
-    abbr: getOffsetAbbreviation(etDateTime)
+    dateTime: baseDateTime,
+    abbr: getOffsetAbbreviation(baseDateTime)
   });
 
   locations.forEach((location) => {

@@ -3,19 +3,19 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ET Time Buddy</title>
+  <title>Time Buddy</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
   <script src="https://cdn.jsdelivr.net/npm/luxon@3.5.0/build/global/luxon.min.js" defer></script>
-  <script src="app.js?v=20260224a" defer></script>
+  <script src="app.js?v=20260303a" defer></script>
 </head>
 <body>
   <main class="container">
     <header class="app-header">
-      <h1>ET Time Buddy</h1>
-      <p>Compare multiple time zones with Eastern Time (America/New_York).</p>
+      <h1>Time Buddy</h1>
+      <p>Compare multiple time zones with <strong id="baseZoneLabelText">ET</strong> (<span id="baseZoneIanaText">America/New_York</span>) as a built-in anchor.</p>
     </header>
 
     <nav class="view-tabs" aria-label="Feature tabs">
@@ -25,6 +25,14 @@
 
     <div id="converterView" class="app-view">
       <section class="panel controls" aria-label="Time settings">
+        <div class="field-row base-zone-field">
+          <label for="baseZoneSelect">Anchor timezone</label>
+          <select id="baseZoneSelect" aria-label="Anchor timezone">
+            <option value="ET">ET</option>
+            <option value="CT">CT</option>
+          </select>
+        </div>
+
         <div class="field-row">
           <label for="locationInput">Add location / timezone</label>
           <div class="location-input-wrap">
@@ -83,12 +91,13 @@
             </div>
           </div>
         </div>
+        <p id="qualityNotice" class="quality-notice hidden" role="status" aria-live="polite"></p>
       </section>
 
       <section class="panel result-card" aria-live="polite" aria-atomic="true">
         <h2>Results</h2>
         <div id="resultsList" class="results-list">
-          <!-- ET row + per-zone rows rendered by app.js -->
+          <!-- Base row (ET/CT) + per-zone rows rendered by app.js -->
         </div>
         <div class="copy-actions">
           <button id="copyAllBtn" type="button">Copy all times</button>
