@@ -806,11 +806,184 @@ fieldset {
   margin: 0;
 }
 
+.next-steps {
+  margin-top: 0.55rem;
+  padding-top: 0.72rem;
+  border-top: 1px solid color-mix(in srgb, var(--border) 82%, white);
+  display: grid;
+  gap: 0.42rem;
+}
+
+.next-steps h3 {
+  margin: 0;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.next-steps .copy-actions-container {
+  margin-top: 0.12rem;
+}
+
 .copy-actions {
   margin-top: 0.8rem;
   display: flex;
   gap: 0.6rem;
   flex-wrap: wrap;
+}
+
+.split-btn {
+  display: inline-flex;
+}
+
+.split-btn #copyAllBtn {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+  border-right: none;
+}
+
+.split-btn .split-btn-toggle {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  padding: 0 0.6rem;
+  background: var(--accent);
+  color: #ffffff;
+  border-color: var(--accent-deep);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.split-btn .split-btn-toggle:hover,
+.split-btn .split-btn-toggle:focus-visible {
+  background: color-mix(in srgb, var(--accent) 86%, black);
+  border-color: color-mix(in srgb, var(--accent-deep) 88%, black);
+}
+
+.split-btn-toggle[aria-expanded="true"] .advanced-settings-chevron {
+  transform: rotate(180deg);
+}
+
+.copy-preview-box {
+  margin-top: 0.6rem;
+  padding: 0.6rem 0.8rem;
+  background: color-mix(in srgb, var(--accent-soft) 30%, white);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.copy-preview-text {
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.85rem;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.double-check-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42rem;
+}
+
+.action-btn-wrap, .info-btn-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.action-tooltip {
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  left: 50%;
+  transform: translateX(-50%) translateY(-4px);
+  z-index: 9;
+  padding: 0.35rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent-soft) 54%, white);
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.2;
+  white-space: nowrap;
+  box-shadow: 0 8px 18px rgba(9, 36, 33, 0.08);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 180ms ease, transform 180ms ease, visibility 0s linear 180ms;
+}
+
+.action-btn-wrap:hover .action-tooltip,
+.action-btn-wrap:focus-within .action-tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.action-btn-wrap.is-confirmation .action-tooltip {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateX(-50%) translateY(0);
+}
+
+#doubleCheckBtn {
+  background: color-mix(in srgb, var(--accent-soft) 55%, white);
+  border-color: color-mix(in srgb, var(--accent) 42%, white);
+}
+
+#doubleCheckBtn:hover,
+#doubleCheckBtn:focus-visible {
+  background: color-mix(in srgb, var(--accent-soft) 72%, white);
+  border-color: color-mix(in srgb, var(--accent) 58%, white);
+}
+
+.double-check-info-btn {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--muted);
+  line-height: 1;
+}
+
+.double-check-info-bubble {
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  right: 0;
+  z-index: 9;
+  min-width: 250px;
+  max-width: min(360px, 82vw);
+  padding: 0.5rem 0.62rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent-soft) 54%, white);
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.35;
+  box-shadow: 0 8px 18px rgba(9, 36, 33, 0.08);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(-4px);
+  transition: opacity 180ms ease, transform 180ms ease, visibility 0s linear 180ms;
+}
+
+.info-btn-wrap:hover .double-check-info-bubble,
+.info-btn-wrap:focus-within .double-check-info-bubble {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateY(0);
+  transition: opacity 180ms ease, transform 180ms ease;
 }
 
 button {

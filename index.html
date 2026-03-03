@@ -99,10 +99,46 @@
         <div id="resultsList" class="results-list">
           <!-- Base row (ET/CT) + per-zone rows rendered by app.js -->
         </div>
-        <div class="copy-actions">
-          <button id="copyAllBtn" type="button">Copy all times</button>
-        </div>
-        <p id="copyFeedback" class="copy-feedback" role="status"></p>
+        <section class="next-steps" aria-label="Next steps">
+          <h3>Next Steps</h3>
+          <div class="copy-actions-container">
+            <div class="copy-actions">
+              <div class="action-btn-wrap">
+                <div class="split-btn">
+                  <button id="copyAllBtn" type="button">Copy all times</button>
+                  <button id="copyPreviewToggleBtn" class="split-btn-toggle" type="button" aria-expanded="false" aria-label="Toggle preview" aria-controls="copyPreviewBox">
+                    <span class="advanced-settings-chevron" aria-hidden="true">▾</span>
+                  </button>
+                </div>
+                <div id="copyAllTooltip" class="action-tooltip" role="tooltip">Copy to clipboard</div>
+              </div>
+              <div class="double-check-wrap">
+                <div class="action-btn-wrap">
+                  <button id="doubleCheckBtn" type="button">Double Check</button>
+                  <div id="doubleCheckTooltip" class="action-tooltip" role="tooltip">Copy to clipboard</div>
+                </div>
+                <div class="info-btn-wrap">
+                  <button
+                    id="doubleCheckInfoBtn"
+                    class="double-check-info-btn"
+                    type="button"
+                    aria-label="How Double Check works"
+                    aria-describedby="doubleCheckInfoBubble"
+                  >
+                    ?
+                  </button>
+                  <div id="doubleCheckInfoBubble" class="double-check-info-bubble" role="tooltip">
+                    Copies a verification prompt with your selected zones and results so you can paste it into another LLM and confirm Time Buddy output.
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div id="copyPreviewBox" class="copy-preview-box hidden" aria-hidden="true">
+              <pre id="copyPreviewText" class="copy-preview-text"></pre>
+            </div>
+          </div>
+          <p id="copyFeedback" class="copy-feedback" role="status"></p>
+        </section>
       </section>
     </div>
 
