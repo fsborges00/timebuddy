@@ -1514,7 +1514,7 @@ function formatPickModeSubject(entries) {
     dayEntries.sort((a, b) => getMinuteOfDay(a.dateTime) - getMinuteOfDay(b.dateTime));
 
     const headerDate = dayEntries[0]?.dateTime;
-    const dateLabel = headerDate ? formatMonthDayWithOrdinal(headerDate) : "";
+    const dateLabel = headerDate ? formatWeekdayMonthDayWithOrdinal(headerDate) : "";
     const segments = dayEntries.map((entry) => formatSubjectTimeSegment(entry.dateTime, entry.abbr));
     return `${dateLabel} @ ${segments.join(" // ")}`;
   });
@@ -1582,6 +1582,11 @@ function formatMonthDayWithOrdinal(dateTime) {
   const month = dateTime.toFormat("LLLL");
   const day = dateTime.day;
   return `${month} ${day}${getOrdinalSuffix(day)}`;
+}
+
+function formatWeekdayMonthDayWithOrdinal(dateTime) {
+  const weekday = dateTime.toFormat("cccc");
+  return `${weekday}, ${formatMonthDayWithOrdinal(dateTime)}`;
 }
 
 function getOrdinalSuffix(day) {
